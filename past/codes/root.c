@@ -1,19 +1,19 @@
 struct DNSHeader header;
 struct DNSQuery query;
 struct DNSRR rr[10];			
-struct sockaddr_in clientAddr;	//记录UDP传输中的客户端地址
-unsigned char dnsmessage[1024];//报文
-unsigned char* rr_ptr;			//记录rr的位置
-unsigned char* get_rr_ptr;		//用于getRR的指针
-char* filename;					//文件名
-int socketudp;					//套接字标识符
-int err;						//记录返回值
-int len_header_query = 0;   	//记录报文中资源记录之前部分的长度
+struct sockaddr_in clientAddr;	//???UDP?????е???????
+unsigned char dnsmessage[1024];//????
+unsigned char* rr_ptr;			//???rr??λ??
+unsigned char* get_rr_ptr;		//????getRR?????
+char* filename;					//?????
+int socketudp;					//?????????
+int err;						//????????
+int len_header_query = 0;   	//?????????????????????????
 
 void initSocket(const char* svr, const char* _filename)
 {
 	filename = _filename;
-    //初始化UDP套接字
+    //?????UDP?????
     socketudp = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP);
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -35,13 +35,13 @@ int containStr(const unsigned char* dname, const unsigned char* rname, const uns
     int i = len1 - 1, j = len2 - 1;
     if(type == 'N')
     {
-        for(;; i--,j--) //自后向前遍历
+        for(;; i--,j--) //??????????
         {
-            if(j < 0)//rname读完,表示每一位都匹配上
+            if(j < 0)//rname????,?????λ???????
             {
                 return 1;
             }
-            if(dname[i] != rname[j])//某一位未匹配上
+            if(dname[i] != rname[j])//??λδ?????
                 return -1;
         }
     }
@@ -60,10 +60,10 @@ void setRR()
     unsigned char temp_rr[256];
     rr_ptr = getMessage(&header, &query, dnsmessage, &len_header_query);
     get_rr_ptr = rr_ptr;
-    memset(rr_ptr, 0, sizeof(dnsmessage) - len_header_query);//清空报文中的rr部分
+    memset(rr_ptr, 0, sizeof(dnsmessage) - len_header_query);//???????е?rr????
     unsigned char* ptr = dnsmessage;
     ptr += 6;
-    *((unsigned short*)ptr) = 0;//报头的资源记录数置零
+    *((unsigned short*)ptr) = 0;//?????????????????
     ptr += 2;
     *((unsigned short*)ptr) = 0;
     FILE *fp;
@@ -77,7 +77,7 @@ void setRR()
     memset(dname, 0, sizeof(dname));
     unsigned char* temp_ptr = query.name;
     int flag, i, num = 0;
-    for(;;)//将query.name转换成标准的域名格式
+    for(;;)//??query.name????????????????
     {
         flag = (int)temp_ptr[0];
         for(i = 0; i < flag; i++)
@@ -90,10 +90,10 @@ void setRR()
         dname[flag + num] = '.';
         num += (flag + 1);
     }
-    while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//逐行查询
+    while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//???в??
     {
-        unsigned char rname[128];//记录一条资源记录中第一个空格前的部分
-        unsigned char type;//记录第二个空格后的字符，也就是RR类型的首字母
+        unsigned char rname[128];//?????????????е?????????????
+        unsigned char type;//???????????????????????RR??????????
         memset(rname, 0, sizeof(rname));
         int len = strlen(temp_rr);
         for(i = 0; i < len; i++)
@@ -130,14 +130,14 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     unsigned char buf[128];
     unsigned char* ptr = dnsmessage;
     ptr += 6;
-    *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) + 1);//报头的资源记录数加1
+    *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) + 1);//???????????????1
     ptr = buf;
     char *pos;
-    int n, len = 0;//len记录域名的长度
+    int n, len = 0;//len????????????
     pos = (char*)rname;
-    /*将域名存到buf中，buf中存储每个域的长度和内容
-    比如当前域是edu.cn，存到buf中就变成了3edu2cn0
-    ,0表示结尾*/
+    /*???????浽buf?У?buf?д洢??????????????
+    ???統?????edu.cn???浽buf?о?????3edu2cn0
+    ,0?????β*/
     for(;;)
     {
         n = strlen(pos) - (strstr(pos , ".") ? strlen(strstr(pos , ".")) : 0);
@@ -159,8 +159,8 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     pos = (char*)str;
     pos += (len + 2);
     int flag = 0;
-    /*因为只考虑A,NS,MX,CNAME四种查询类型
-    ，所以只做了匹配第一个字母的简单处理*/
+    /*????????A,NS,MX,CNAME??????????
+    ???????????????????????????*/
     switch(pos[0])
     {
     case'A':
@@ -204,7 +204,7 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     *((unsigned short*)rr_ptr) = htonl(0);
     rr_ptr += 4;
     len = strlen(pos);
-    len = len - 2;//len - 2是因为从文件中读取的字符串最后两位是回车加换行
+    len = len - 2;//len - 2???????????ж??????????????λ?????????
     if (flag == 1)
     {
         *((unsigned short*)rr_ptr) = htons(4);
@@ -247,10 +247,10 @@ void setAddRR()
     int i, j;
     for(j = 0; j < header.answerNum; j++)
     {
-        if(rr[i].type == 15)//找到MX对应data对应的IP地址
+        if(rr[i].type == 15)//???MX???data?????IP???
         {
             unsigned char temp_rr[256];
-            unsigned char type;//记录第二个空格后的字符，也就是RR类型的首字母
+            unsigned char type;//???????????????????????RR??????????
             FILE *fp;
             fp = fopen(filename, "r");
             if(fp == NULL)
@@ -258,9 +258,9 @@ void setAddRR()
                 printf("the file cannot be opened: %d", errno);
                 exit(0);
             }
-            while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//逐行查询
+            while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//???в??
             {
-                unsigned char rname[128];//记录一条资源记录中第一个空格前的部分
+                unsigned char rname[128];//?????????????е?????????????
                 memset(rname, 0, sizeof(rname));
                 int len = strlen(temp_rr);
                 for(i = 0; i < len; i++)
@@ -283,8 +283,8 @@ void setAddRR()
                     addRR(temp_rr, rname);
                     unsigned char* ptr = dnsmessage;
                     ptr += 6;
-                    /*因为添加additional rr也是用的添加RR的函数，所以
-                    需要报头的资源记录数减1，然后附加资源记录数加1*/
+                    /*???????additional rr??????????RR???????????
+                    ??????????????????1????????????????1*/
                     *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) - 1);
                     ptr += 4;
                     *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) + 1);
@@ -321,7 +321,7 @@ void recvfromSvr(int flag)
 			break;
 		}
 	}
-    if(err <= 0)//等于0时表示连接已终止
+    if(err <= 0)//????0?????????????
     {
         printf("UDP socket receive failed: %d\n", errno);
         exit(0);
@@ -395,7 +395,7 @@ void recursion()
             recvfromSvr(0);
             sendtoSvr("", 1);
         }
-        else//如果查询类型不为A表示已经查到结果
+        else//????????????A???????鵽???
         {
             sendtoSvr("", 1);
         }
@@ -409,7 +409,7 @@ void process()
         recvfromSvr(1);
         setRR();
         setAddRR();
-        /*判断使用何种解析方式*/
+        /*?ж???ú?????????*/
         if(header.tag == 0x0080)
         {
             iterantion();
