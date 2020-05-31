@@ -1,13 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <sys/time.h>
-#include <memory.h>
-#include <strings.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <dns.h>
+#include "dns.h"
 
 struct DNS_Head header;
 struct DNS_Query query;
@@ -482,6 +473,31 @@ void findRR(unsigned char* qname)
 
 
 }
+void setheader(unsigned char* packet, int* packetlen)
+{
+    packet += *packetlen;
+
+    Header head;
+
+    //主机字节序转网络字节序以传输
+    head.id = htons((unsigned short)clock());
+    head.tag = htons((unsigned short)0x8400);
+    head.queryNum = htons((unsigned short)1);
+    head.answerNum = htons((unsigned short)0);
+    head.authorNum = htons((unsigned short)0);
+    head.addNum = htons((unsigned short)0);
+
+    unsigned char* ptr = (unsigned char*)&head;
+    int i;
+    for (i = 0; i < 12; ++i)
+    {
+        //将header赋值进packet中
+        *packet++ = *ptr++;
+    }
+
+    //更新pakcetlen
+    *packetlen += 12;
+}
 
 void process()
 {
@@ -492,7 +508,8 @@ void process()
         gethead(dnsmessage, &udprecvpos, &header);
         getquery(dnsmessage, &udprecvpos, &query);
         findRR(query.qname);
-        setheader();
+        udpsendpos = 0;
+        setheader(udpsendpacket, &udpsendpos);
         setRR();
         setAddRR();
         sendtoSvr();
@@ -510,6 +527,7 @@ void process()
 int main()
 {
     initSocket();
+    clock();
     process();
     return 0;
 }

@@ -1,38 +1,31 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+#include <dns.h>
 //数据结构
-struct DNS_Head
-{
-    unsigned short id;
-    unsigned short tag;
-    unsigned short queryNum;
-    unsigned short answerNum;
-    unsigned short authorNum;
-    unsigned short addNum;
-};
+// struct DNS_Head
+// {
+//     unsigned short id;
+//     unsigned short tag;
+//     unsigned short queryNum;
+//     unsigned short answerNum;
+//     unsigned short authorNum;
+//     unsigned short addNum;
+// };
 
-struct DNS_Query
-{
-    unsigned char *qname;
-    unsigned short qtype;
-    unsigned short qclass;
-};
+// struct DNS_Query
+// {
+//     unsigned char *qname;
+//     unsigned short qtype;
+//     unsigned short qclass;
+// };
 
-struct DNS_RR
-{
-    unsigned char *rname;
-    unsigned short rtype;
-    unsigned short rclass;
-    unsigned int ttl;
-    unsigned short datalen;
-    unsigned char *rdata;
-};
+// struct DNS_RR
+// {
+//     unsigned char *rname;
+//     unsigned short rtype;
+//     unsigned short rclass;
+//     unsigned int ttl;
+//     unsigned short datalen;
+//     unsigned char *rdata;
+// };
 //DNS服务器ip
 unsigned char ip[64];
 //包缓存
@@ -43,7 +36,7 @@ unsigned char udprecvpacket[1024];// 服务器发来的数据缓存区
 //包指针
 int tcpsendpos,tcprecvpos, udpsendpos, udprecvpos;
 //rr缓存
-struct DNS_RR rrdb[4];
+RR rrdb[4];
 int rrnum;
 unsigned char db[1024];
 unsigned char* dbptr;
@@ -112,9 +105,9 @@ int main()
         recv(tcpClientSocket, tcprecvpacket, sizeof(tcprecvpacket), 0);// flags为0
         printf("server recv packet from client\n");
 
-        struct DNS_Head head;
-        struct DNS_Query query;
-        struct DNS_RR rr;
+        Header head;
+        Query query;
+        RR rr;
         //解析报文
         tcprecvpos = 2;//额外的2字节
         gethead(tcprecvpacket, &tcprecvpos, &head);
@@ -180,8 +173,8 @@ int main()
                 }
                 else if (rr.rtype == 5)//CNAME类型的查询
                 {
-                    struct DNS_Head h1;
-                    struct DNS_Query q1;
+                    Header h1;
+                    Query q1;
                     udpsendpos = 0;
                     gethead(udpsendpacket, &udpsendpos, &h1);
                     getquery(udpsendpacket, &udpsendpos, &q1);
@@ -213,8 +206,8 @@ int main()
                             printf("server recv packet from %s\n", ip);
 
 
-                            struct DNS_Head h2;
-                            struct DNS_RR r2;
+                            Header h2;
+                            RR r2;
                             udprecvpos = 0;
                             gethead(udprecvpacket, &udprecvpos, &h2);
                             getrr(udprecvpacket, &udprecvpos, &r2);
@@ -264,8 +257,8 @@ int main()
                         recvfrom(udpSocket, udprecvpacket, sizeof(udprecvpacket), 0, (struct sockaddr*)&udpRemoteAddr, &udpaddrlen);
                         printf("server recv packet from %s\n", ip);
 
-                        struct DNS_Head h2;
-                        struct DNS_RR r2;
+                        Header h2;
+                        RR r2;
                         udprecvpos = 0;
                         gethead(udprecvpacket, &udprecvpos, &h2);
                         getrr(udprecvpacket, &udprecvpos, &r2);
@@ -362,12 +355,12 @@ void formdomain(unsigned char* domain)
     }
 }
 
-void gethead(unsigned char* packet, int* packetlen, struct DNS_Head* head)
+void gethead(unsigned char* packet, int* packetlen, Header* head)
 {
     packet += *packetlen;//整个报文需要向后移动两个元素以读取
 
     //将packet中数据强制转换类型并让head指向packet
-    *head = *(struct DNS_Head*)packet;
+    *head = *(Header*)packet;
 
     //网络字节序转换为主机字节序
     head->id = ntohs(head->id);
@@ -380,7 +373,7 @@ void gethead(unsigned char* packet, int* packetlen, struct DNS_Head* head)
     *packetlen += 12;// 2+12=14，每项两个字节*6 = 12
 }
 
-void getquery(unsigned char* packet, int* packetlen, struct DNS_Query* query)
+void getquery(unsigned char* packet, int* packetlen, Query* query)
 {
     packet += *packetlen;//（header部分+2）以读取query
 
@@ -395,7 +388,7 @@ void getquery(unsigned char* packet, int* packetlen, struct DNS_Query* query)
     *packetlen += 4;//2*2
 }
 
-void getrr(unsigned char* packet, int* packetlen, struct DNS_RR* rr)
+void getrr(unsigned char* packet, int* packetlen, RR* rr)
 {
     packet += *packetlen;
 
@@ -421,7 +414,7 @@ void setstdhead(unsigned char* packet, int* packetlen)
 {
     packet += *packetlen;
 
-    struct DNS_Head head;
+    Header head;
 
     //主机字节序转网络字节序以传输
     head.id = htons((unsigned short)clock());
@@ -447,7 +440,7 @@ void setreshead(unsigned char* packet, int* packetlen, int id)
 {
     packet += *packetlen;
 
-    struct DNS_Head head;
+    Header head;
 
     head.id = htons((unsigned short)id);
     head.tag = htons((unsigned short)0x8000);
@@ -468,7 +461,7 @@ void setreshead(unsigned char* packet, int* packetlen, int id)
 
 void setaquery(unsigned char* packet, int* packetlen, unsigned char* domain)
 {
-    struct DNS_Query query;
+    Query query;
 
     query.qname = domain;
     query.qtype = htons(1);//A
@@ -493,7 +486,7 @@ void setaquery(unsigned char* packet, int* packetlen, unsigned char* domain)
     *packetlen += 4;
 }
 
-void setrr(unsigned char* packet, int* packetlen, struct DNS_RR rr)
+void setrr(unsigned char* packet, int* packetlen, RR rr)
 {
     packet += *packetlen;
 
