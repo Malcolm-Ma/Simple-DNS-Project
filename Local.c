@@ -1,4 +1,4 @@
-#include <dns.h>
+#include "dns.h"
 //数据结构
 // struct DNS_Head
 // {
@@ -83,6 +83,11 @@ int main()
     if (bind(tcpServerSocket, (struct sockaddr*)&tcpServerAddr, sizeof(struct sockaddr)) < 0)
     {
         perror("TCP SOCKET BINDS ERROR!\n");
+        exit(0);
+    }
+    if (bind(udpSocket, (struct sockaddr*)&tcpServerAddr, sizeof(struct sockaddr)) < 0)
+    {
+        perror("UDP SOCKET BINDS ERROR!\n");
         exit(0);
     }
     listen(tcpServerSocket, 4);//sockfd, backlog(缺省值20)

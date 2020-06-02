@@ -1,11 +1,17 @@
 #include <stdio.h>
 #include <string.h>
 
-int main()
+int main ()
 {
-    unsigned char buf[] = "Hello";
-    int a =4;
-    int* b = &a;
-    *b = 10;
-    printf("%lu",sizeof(buf));
+    struct Books
+    {
+    char  title[50];
+    char  author[50];
+    char  subject[100];
+    int   book_id;
+    };
+   struct Books book1;
+   struct Books* p = &book1;
+   strcpy(p->title, "hello");
+   printf("%lu", sizeof(p->title));
 }
