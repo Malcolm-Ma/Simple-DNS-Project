@@ -69,6 +69,7 @@ void getMessage()//将字符串形式的报文转换成结构体存储方式
     header.id = ntohs(*((unsigned short*)ptr));
     ptr += 2;
     header.tag = ntohs(*((unsigned short*)ptr));
+    *((unsigned short*)ptr) = htons((unsigned short)0x8400);
     ptr += 2;
     header.queryNum = ntohs(*((unsigned short*)ptr));
     ptr += 2;
@@ -186,7 +187,7 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     {
         *((unsigned short*)rr_ptr) = htons(2);
         rr_ptr += 2;
-        pos += 3;
+        pos += 2;
         break;
     }
     case'C':
@@ -211,7 +212,7 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     *((unsigned short*)rr_ptr) = htonl(0);
     rr_ptr += 4;
     len = strlen(pos);
-    len = len - 2;//len - 1是因为从文件中读取的字符串最后一位是回车
+    len = len - 1;//len - 1是因为从文件中读取的字符串最后一位是回车
     *((unsigned short*)rr_ptr) = htons(len);
     rr_ptr += 2;
     memcpy(rr_ptr, pos, len);

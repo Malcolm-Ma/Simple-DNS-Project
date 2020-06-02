@@ -14,4 +14,5 @@ int main ()
    struct Books* p = &book1;
    strcpy(p->title, "hello");
    printf("%lu", sizeof(p->title));
+   printf("%d", ntohs("0x0080"));
 }
