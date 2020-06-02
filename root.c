@@ -1,37 +1,114 @@
-#include "dns.h"
+#include "DNS1.h"
 
-struct DNS_Head header;
-struct DNS_Query query;
-struct DNS_RR rr[10];			
-struct sockaddr_in clientAddr;	//��¼UDP�����еĿͻ��˵�ַ
-unsigned char dnsmessage[1024];//����
-unsigned char udpsendpacket[1024];// 发给服务器的数据缓存区
-unsigned char* rr_ptr;			//��¼rr��λ��
-unsigned char* get_rr_ptr;		//����getRR��ָ��	
-int socketudp;					//�׽��ֱ�ʶ��
-int err;						//��¼����ֵ
-int len_header_query = 0;   	//��¼��������Դ��¼֮ǰ���ֵĳ���
-int tcpsendpos,tcprecvpos, udpsendpos, udprecvpos;
-unsigned char ip[64];
+Header header;
+Query query;
+RR rr[10];
+struct sockaddr_in clientAddr;
+int udp_socket, clientSocket;//套接字标识符
+int err;//记录返回值
+int len_header_query = 0;//报头和查询请求的长度，用来清空rr部分
+unsigned char dns_message[1024];
+unsigned char* rr_ptr;//记录rr的位置
+unsigned char* get_rr_ptr;//用于getRR的指针
 
-void initSocket()
+void init()
 {
-    socketudp = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP);
-    //为socket生成地址
+    //初始化UDP套接字
+    udp_socket = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP);
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(53);
-    addr.sin_addr.s_addr = inet_addr("127.0.0.3");
-    //绑定
-    err = bind(socketudp, (struct sockaddr*)&addr, sizeof(struct sockaddr));
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = inet_addr(ROOT_SVR);
+    err = bind(udp_socket, (struct sockaddr*)&addr, sizeof(struct sockaddr));
     if(err < 0)
     {
-        perror("udpsocket bind failed");
-        exit(0);
+        printf("bind failed: %d\n", errno);
+        exit(-1);
     }
 }
 
+void getRR(unsigned char* ptr)//结构体存储RR
+{
+    int i, flag, num;
+    for(i = 0; i < header.answerNum; i++)
+    {
+        num = 0;
+        for(;;)
+        {
+            flag = (int)ptr[0];
+            num += (flag + 1);
+            ptr += (flag + 1);
+            if(flag == 0)
+                break;
+        }
+        ptr -= num;
+        memset(rr[i].name, 0, sizeof(rr[i].name));
+        memcpy(rr[i].name, ptr, num - 1);
+        ptr += num;
+        rr[i].type = ntohs(*((unsigned short*)ptr));
+        ptr += 2;
+        rr[i]._class = ntohs(*((unsigned short*)ptr));
+        ptr += 2;
+        rr[i].ttl = ntohl(*((unsigned short*)ptr));
+        ptr += 4;
+        rr[i].data_len = ntohs(*((unsigned short*)ptr));
+        ptr += 2;
+        memset(rr[i].rdata, 0, sizeof(rr[i].rdata));
+        memcpy(rr[i].rdata, ptr, rr[i].data_len);
+        ptr += rr[i].data_len;
+    }
+    rr_ptr = ptr;
+}
+
+void getMessage()//将字符串形式的报文转换成结构体存储方式
+{
+    char* ptr = dns_message;
+    int i, flag, num = 0;//num记录name的长度
+    /*提取报头*/
+    header.id = ntohs(*((unsigned short*)ptr));
+    ptr += 2;
+    header.tag = ntohs(*((unsigned short*)ptr));
+    ptr += 2;
+    header.queryNum = ntohs(*((unsigned short*)ptr));
+    ptr += 2;
+    header.answerNum = ntohs(*((unsigned short*)ptr));
+    ptr += 2;
+    header.authorNum = ntohs(*((unsigned short*)ptr));
+    ptr += 2;
+    header.addNum = ntohs(*((unsigned short*)ptr));
+    ptr += 2;
+    len_header_query += 12;
+    /*提取查询请求*/
+    for(i = 0; i < header.queryNum; i++)
+    {
+        int k = 0;
+        for(;;)
+        {
+            flag = (int)ptr[0];
+            k++;
+            num += flag;
+            ptr += (flag + 1);
+            if(flag == 0)
+                break;
+        }
+        ptr -= (num + k);
+        memset(query.name, 0, sizeof(query.name));
+        memcpy(query.name, ptr, num + k - 1);
+        ptr += (num + k);
+        len_header_query += (num + k);
+        query.qtype = ntohs(*((unsigned short*)ptr));
+        ptr += 2;
+        query.qclass = ntohs(*((unsigned short*)ptr));
+        rr_ptr = ptr + 2;
+        len_header_query += 4;
+    }
+    get_rr_ptr = rr_ptr;
+}
+
+/*从末尾匹配dname和rname,看rname是否为dname的子集
+如果类型是NS则只需要rname是dname的子集，否则需要
+每一位都匹配*/
 int containStr(const unsigned char* dname, const unsigned char* rname, const unsigned char type)
 {
     int len1 = strlen(dname);
@@ -39,13 +116,13 @@ int containStr(const unsigned char* dname, const unsigned char* rname, const uns
     int i = len1 - 1, j = len2 - 1;
     if(type == 'N')
     {
-        for(;; i--,j--) //�Ժ���ǰ����
+        for(;; i--,j--) //自后向前遍历
         {
-            if(j < 0)//rname����,��ʾÿһλ��ƥ����
+            if(j < 0)//rname读完,表示每一位都匹配上
             {
                 return 1;
             }
-            if(dname[i] != rname[j])//ĳһλδƥ����
+            if(dname[i] != rname[j])//某一位未匹配上
                 return -1;
         }
     }
@@ -59,29 +136,106 @@ int containStr(const unsigned char* dname, const unsigned char* rname, const uns
     }
 }
 
+void addRR(const unsigned char* str, const unsigned char* rname)
+{
+    unsigned char buf[128];
+    unsigned char* ptr = dns_message;
+    ptr += 6;
+    *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) + 1);//报头的资源记录数加1
+    ptr = buf;
+    char *pos;
+    int n, len = 0;//len记录域名的长度
+    pos = (char*)rname;
+    /*将域名存到buf中，buf中存储每个域的长度和内容
+    比如当前域是edu.cn，存到buf中就变成了3edu2cn0
+    ,0表示结尾*/
+    for(;;)
+    {
+        n = strlen(pos) - (strstr(pos , ".") ? strlen(strstr(pos , ".")) : 0);
+        *ptr ++ = (unsigned char)n;
+        memcpy(ptr , pos , n);
+        len += n + 1;
+        ptr += n;
+        if(!strstr(pos , "."))
+        {
+            *ptr = (unsigned char)0;
+            ptr ++;
+            len += 1;
+            break;
+        }
+        pos += n + 1;
+    }
+    memcpy(rr_ptr, buf, len);
+    rr_ptr += len;
+    pos = (char*)str;
+    pos += (len + 2);
+    /*因为只考虑A,NS,MX,CNAME四种查询类型
+    ，所以只做了匹配第一个字母的简单处理*/
+    switch(pos[0])
+    {
+    case'A':
+    {
+        *((unsigned short*)rr_ptr) = htons(1);
+        rr_ptr += 2;
+        pos += 2;
+        break;
+    }
+    case'N':
+    {
+        *((unsigned short*)rr_ptr) = htons(2);
+        rr_ptr += 2;
+        pos += 3;
+        break;
+    }
+    case'C':
+    {
+        *((unsigned short*)rr_ptr) = htons(5);
+        rr_ptr += 2;
+        pos += 6;
+        break;
+    }
+    case'M':
+    {
+        *((unsigned short*)rr_ptr) = htons(15);
+        rr_ptr += 2;
+        pos += 3;
+        break;
+    }
+    }
+    *((unsigned short*)rr_ptr) = htons(1);
+    rr_ptr += 2;
+    *((unsigned short*)rr_ptr) = htonl(0);
+    rr_ptr += 4;
+    len = strlen(pos);
+    len = len - 2;//len - 1是因为从文件中读取的字符串最后一位是回车
+    *((unsigned short*)rr_ptr) = htons(len);
+    rr_ptr += 2;
+    memcpy(rr_ptr, pos, len);
+    rr_ptr += len;
+}
+
+/*查询文件中存储的资源记录,查询到符合要求
+的则调用addRR函数，将资源记录加入到报文中*/
 void setRR()
 {
     unsigned char temp_rr[256];
-    rr_ptr = getMessage(&header, &query, dnsmessage, &len_header_query);
-    get_rr_ptr = rr_ptr;
-    memset(rr_ptr, 0, sizeof(dnsmessage) - len_header_query);//��ձ����е�rr����
-    unsigned char* ptr = dnsmessage;
+    getMessage();
+    memset(rr_ptr, 0, sizeof(dns_message) - len_header_query);//清空报文中的rr部分
+    unsigned char* ptr = dns_message;
     ptr += 6;
-    *((unsigned short*)ptr) = 0;//��ͷ����Դ��¼������
-    ptr += 2;
-    *((unsigned short*)ptr) = 0;
+    *((unsigned short*)ptr) = 0;//报头的资源记录数置零
     FILE *fp;
-    fp = fopen(filename, "r");
+    fp = fopen("root.txt", "r");
     if(fp == NULL)
     {
-        printf("the file cannot be opened: %d\n", errno);
-        exit(0);
+        printf("the file cannot be opened");
+        exit(-1);
     }
     unsigned char dname[128];
     memset(dname, 0, sizeof(dname));
     unsigned char* temp_ptr = query.name;
     int flag, i, num = 0;
-    for(;;)//��query.nameת���ɱ�׼��������ʽ
+    for(;;)//将query.name转换成标准的域名格式
     {
         flag = (int)temp_ptr[0];
         for(i = 0; i < flag; i++)
@@ -94,10 +248,10 @@ void setRR()
         dname[flag + num] = '.';
         num += (flag + 1);
     }
-    while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//���в�ѯ
+    while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//逐行查询
     {
-        unsigned char rname[128];//��¼һ����Դ��¼�е�һ���ո�ǰ�Ĳ���
-        unsigned char type;//��¼�ڶ����ո����ַ���Ҳ����RR���͵�����ĸ
+        unsigned char rname[128];//记录一条资源记录中第一个空格前的部分
+        unsigned char type;//记录第二个空格后的字符，也就是RR类型的首字母
         memset(rname, 0, sizeof(rname));
         int len = strlen(temp_rr);
         for(i = 0; i < len; i++)
@@ -124,147 +278,32 @@ void setRR()
     err = fclose(fp);
     if(err == EOF)
     {
-        printf("The file close failed: %d\n", errno);
-        exit(0);
+        printf("The file close failed");
+        exit(-1);
     }
 }
 
-void addRR(const unsigned char* str, const unsigned char* rname)
+void addaddrr()
 {
-    unsigned char buf[128];
-    unsigned char* ptr = dnsmessage;
-    ptr += 6;
-    *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) + 1);//��ͷ����Դ��¼����1
-    ptr = buf;
-    char *pos;
-    int n, len = 0;//len��¼�����ĳ���
-    pos = (char*)rname;
-    /*�������浽buf�У�buf�д洢ÿ����ĳ��Ⱥ�����
-    ���統ǰ����edu.cn���浽buf�оͱ����3edu2cn0
-    ,0��ʾ��β*/
-    for(;;)
-    {
-        n = strlen(pos) - (strstr(pos , ".") ? strlen(strstr(pos , ".")) : 0);
-        *ptr ++ = (unsigned char)n;
-        memcpy(ptr , pos , n);
-        len += n + 1;
-        ptr += n;
-        if(!strstr(pos , "."))
-        {
-            *ptr = (unsigned char)0;
-            ptr ++;
-            len += 1;
-            break;
-        }
-        pos += n + 1;
-    }
-    memcpy(rr_ptr, buf, len);
-    rr_ptr += len;
-    pos = (char*)str;
-    pos += (len + 2);
-    int flag = 0;
-    /*��Ϊֻ����A,NS,MX,CNAME���ֲ�ѯ����
-    ������ֻ����ƥ���һ����ĸ�ļ򵥴���*/
-    switch(pos[0])
-    {
-    case'A':
-    {
-        *((unsigned short*)rr_ptr) = htons(1);
-        rr_ptr += 2;
-        pos += 2;
-        flag = 1;
-        break;
-    }
-    case'N':
-    {
-    	unsigned char* _ptr = dnsmessage;
-        _ptr += 6;
-        *((unsigned short*)_ptr) = htons(htons(*((unsigned short*)_ptr)) - 1);
-        _ptr += 2;
-        *((unsigned short*)_ptr) = htons(htons(*((unsigned short*)_ptr)) + 1);
-        *((unsigned short*)rr_ptr) = htons(2);
-        rr_ptr += 2;
-        pos += 3;
-        break;
-    }
-    case'C':
-    {
-        *((unsigned short*)rr_ptr) = htons(5);
-        rr_ptr += 2;
-        pos += 6;
-        break;
-    }
-    case'M':
-    {
-        *((unsigned short*)rr_ptr) = htons(15);
-        rr_ptr += 2;
-        pos += 3;
-        flag = 2;
-        break;
-    }
-    }
-    *((unsigned short*)rr_ptr) = htons(1);
-    rr_ptr += 2;
-    *((unsigned short*)rr_ptr) = htonl(0);
-    rr_ptr += 4;
-    len = strlen(pos);
-    len = len - 2;//len - 2����Ϊ���ļ��ж�ȡ���ַ��������λ�ǻس��ӻ���
-    if (flag == 1)
-    {
-        *((unsigned short*)rr_ptr) = htons(4);
-        rr_ptr += 2;
-        struct in_addr addr;
-        char ip[32];
-        memset(ip, 0, sizeof(ip));
-        memcpy(ip, pos, len);
-        inet_aton(ip, &addr);
-        *((unsigned long*)rr_ptr) = addr.s_addr;
-        rr_ptr += 4;
-    }
-    else if(flag == 2)
-    {
-    	*((unsigned short*)rr_ptr) = htons(len);
-        rr_ptr += 2;
-        memcpy(rr_ptr, pos - 3, 2);
-        rr_ptr += 2;
-        *rr_ptr = (unsigned char)len;
-        rr_ptr += 1;
-        memcpy(rr_ptr, pos, len);
-        rr_ptr += len;
-        memset(rr_ptr, 0, 1);
-        rr_ptr++;
-    }
-    else
-    {
-        *((unsigned short*)rr_ptr) = htons(len);
-        rr_ptr += 2;
-        memcpy(rr_ptr, pos - 1, len + 1);
-        rr_ptr += (len + 1);
-    }
-}
-
-void setAddRR()
-{
-    rr_ptr = getMessage(&header, &query, dnsmessage, &len_header_query);
-    rr_ptr = getRR(rr, &header, rr_ptr);
-    rr_ptr++;
+    getMessage();
+    getRR(rr_ptr);
     int i, j;
     for(j = 0; j < header.answerNum; j++)
     {
-        if(rr[i].type == 15)//�ҵ�MX��Ӧdata��Ӧ��IP��ַ
+        if(rr[i].type == 15)//找到MX对应data对应的IP地址
         {
             unsigned char temp_rr[256];
-            unsigned char type;//��¼�ڶ����ո����ַ���Ҳ����RR���͵�����ĸ
+            unsigned char type;//记录第二个空格后的字符，也就是RR类型的首字母
             FILE *fp;
-            fp = fopen(filename, "r");
+            fp = fopen("root.txt", "r");
             if(fp == NULL)
             {
-                printf("the file cannot be opened: %d", errno);
-                exit(0);
+                printf("the file cannot be opened");
+                exit(-1);
             }
-            while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//���в�ѯ
+            while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//逐行查询
             {
-                unsigned char rname[128];//��¼һ����Դ��¼�е�һ���ո�ǰ�Ĳ���
+                unsigned char rname[128];//记录一条资源记录中第一个空格前的部分
                 memset(rname, 0, sizeof(rname));
                 int len = strlen(temp_rr);
                 for(i = 0; i < len; i++)
@@ -285,10 +324,10 @@ void setAddRR()
                 if(containStr(rr[j].rdata, rname, type) == 1)
                 {
                     addRR(temp_rr, rname);
-                    unsigned char* ptr = dnsmessage;
+                    unsigned char* ptr = dns_message;
                     ptr += 6;
-                    /*��Ϊ����additional rrҲ���õ�����RR�ĺ���������
-                    ��Ҫ��ͷ����Դ��¼����1��Ȼ�󸽼���Դ��¼����1*/
+                    /*因为添加additional rr也是用的添加RR的函数，所以
+                    需要报头的资源记录数减1，然后附加资源记录数加1*/
                     *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) - 1);
                     ptr += 4;
                     *((unsigned short*)ptr) = htons(htons(*((unsigned short*)ptr)) + 1);
@@ -298,236 +337,118 @@ void setAddRR()
             err = fclose(fp);
             if(err == EOF)
             {
-                printf("The file close failed: %d", errno);
-                exit(0);
+                printf("The file close failed");
+                exit(-1);
             }
             break;
         }
     }
 }
 
-void recvfromSvr(int flag)
+void recvQuestion()//从上一层服务器(递归解析)或Local服务器(迭代解析)接受报文
 {
-	memset(dnsmessage, 0, 1024);
-	switch(flag)
-	{
-		case 0:
-		{
-			struct sockaddr_in addr;
-    		int len = sizeof(addr);
-    		err = recvfrom(socketudp, dnsmessage, sizeof(dnsmessage), 0, (struct sockaddr*)&addr, &len);
-			break;
-		}
-		case 1:
-		{
-			int len = sizeof(clientAddr);
-            //clientAddr中接收到了local的地址结构
-    		err = recvfrom(socketudp, dnsmessage, sizeof(dnsmessage), 0, (struct sockaddr*)&clientAddr, &len);
-			break;
-		}
-	}
-    if(err <= 0)//����0ʱ��ʾ��������ֹ
+    memset(dns_message, 0, 1024);
+    int len = sizeof(clientAddr);
+    err = recvfrom(udp_socket, dns_message, sizeof(dns_message), 0, (struct sockaddr*)&clientAddr, &len);
+    if(err <= 0)//等于0时表示连接已终止
     {
-        perror("UDP socket receive failed");
-        exit(0);
+        printf("UDP socket receive failed: %d\n",errno);
+        exit(-1);
     }
-    int i;
+    printf("receive message from %s\n", inet_ntoa(clientAddr.sin_addr));
+    dns_message[err] = '\0';
 }
 
-void sendtoSvr(const unsigned char* svr, int flag)
+void sendAnswer(const unsigned char *message)//向LocalDNS服务器或上一层服务器发送报文(迭代解析)
 {
-	switch(flag)
-	{
-		case 0:
-		{
-            unsigned char* ptr = dnsmessage;
-            ptr += 2;
-            if (*((unsigned short*)ptr) == htons(0x8080))
-            {
-                *((unsigned short*)ptr) = htons(0x0080);
-            }
-            else if(*((unsigned short*)ptr) == htons(0x8180))
-            {
-                *((unsigned short*)ptr) = htons(0x0180);
-            }
-			struct sockaddr_in destSvr;
-		    memset(&destSvr, 0, sizeof(destSvr));
-		    destSvr.sin_family = AF_INET;
-		    destSvr.sin_port = htons(PORT);
-		    destSvr.sin_addr.s_addr = inet_addr(svr);
-		    int len = sizeof(dnsmessage);
-		    err = sendto(socketudp, dnsmessage, len, 0, (struct sockaddr*)&destSvr, sizeof(struct sockaddr));
-			break;
-		}
-		case 1:
-		{
-            unsigned char* ptr = dnsmessage;
-            ptr += 2;
-            if (*((unsigned short*)ptr) == htons(0x0080))
-            {
-                *((unsigned short*)ptr) = htons(0x8080);
-            }
-            else if(*((unsigned short*)ptr) == htons(0x0180))
-            {
-                *((unsigned short*)ptr) = htons(0x8180);
-            }
-			err = sendto(socketudp, dnsmessage, sizeof(dnsmessage), 0, (struct sockaddr*)&clientAddr, sizeof(struct sockaddr));
-		}
-	}
-	if(err <= 0)
+    int len = sizeof(dns_message);
+    err = sendto(udp_socket, message, len, 0, (struct sockaddr*)&clientAddr, sizeof(struct sockaddr));
+    if(err <= 0)
+    {
+        printf("UDP send failed: %d\n", errno);
+        exit(-1);
+    }
+    printf("send message to %s\n", inet_ntoa(clientAddr.sin_addr));
+}
+
+/*向下一层DNS服务器发送查询请求, svr决定目标服务器的地址(递归解析)*/
+void sendQuestion(const char *message, unsigned char* svr)
+{
+    struct sockaddr_in destSvr;
+    memset(&destSvr, 0, sizeof(destSvr));
+    destSvr.sin_family = AF_INET;
+    destSvr.sin_port = htons(PORT);
+    destSvr.sin_addr.s_addr = inet_addr(svr);
+    int len = sizeof(dns_message);
+    err = sendto(udp_socket, message, len, 0, (struct sockaddr*)&destSvr, sizeof(struct sockaddr));
+    if(err <= 0)
     {
         printf("send question to next dns failed: %d\n", errno);
-        exit(0);
+        exit(-1);
     }
+    printf("send message to %s\n", svr);
+}
+
+void recvAnswer()
+{
+    memset(dns_message, 0, 1024);
+    struct sockaddr_in addr;
+    int len = sizeof(addr);
+    err = recvfrom(udp_socket, dns_message, sizeof(dns_message), 0, (struct sockaddr*)&addr, &len);
+    if(err <= 0)//等于0时表示连接已终止
+    {
+        printf("UDP socket receive failed: %d\n", errno);
+        exit(-1);
+    }
+    printf("receive message from %s\n", inet_ntoa(addr.sin_addr));
+    dns_message[err] = '\0';
 }
 
 void iterantion()
 {
-    printf("\nITERATION\n");
-    sendtoSvr("", 1);
+    printf("iteration is working\n");
+    sendAnswer(dns_message);
 }
 
 void recursion()
 {
-    printf("\nRECURSION\n");
-    rr_ptr = getRR(rr, &header, get_rr_ptr);
+    printf("recursion is working\n");
+    getRR(get_rr_ptr);
     int i;
     for(i = 0; i < header.answerNum; i++)
     {
         if(rr[i].type == 2)
         {
-            sendtoSvr(rr[i].rdata, 0);
-            recvfromSvr(0);
-            sendtoSvr("", 1);
+            sendQuestion(dns_message, rr[i].rdata);
+            recvAnswer();
+            sendAnswer(dns_message);
         }
-        else//�����ѯ���Ͳ�ΪA��ʾ�Ѿ��鵽���
+        else//如果查询类型不为A表示已经查到结果
         {
-            sendtoSvr("", 1);
+            sendAnswer(dns_message);
         }
     }
 }
 
-void gethead(unsigned char* packet, int* packetlen, struct DNS_Head* head)
+int main()
 {
-    packet += *packetlen;//整个报文需要向后移动两个元素以读取
-
-    //将packet中数据强制转换类型并让head指向packet
-    *head = *(struct DNS_Head*)packet;
-
-    //网络字节序转换为主机字节序
-    head->id = ntohs(head->id);
-    head->tag = ntohs(head->tag);
-    head->queryNum = ntohs(head->queryNum);
-    head->answerNum = ntohs(head->answerNum);
-    head->authorNum = ntohs(head->authorNum);
-    head->addNum = ntohs(head->addNum);
-
-    *packetlen += 12;// 2+12=14，每项两个字节*6 = 12
-}
-
-void getquery(unsigned char* packet, int* packetlen, struct DNS_Query* query)
-{
-    packet += *packetlen;//（header部分+2）以读取query
-
-    query->qname = packet;// name长度不固定
-    *packetlen += strlen(packet) + 1;//加上结束符 /0
-    //继续读取
-    packet += strlen(packet) + 1;
-    query->qtype = ntohs(*(unsigned short*)packet);
-    packet += 2;
-    query->qclass = ntohs(*(unsigned short*)packet);
-
-    *packetlen += 4;//2*2
-}
-void findRR(unsigned char* qname)
-{
-    int i = 0;
-    int m = 0;
-    int len = strlen(qname);
-    char name[len-1];
-    char *ptr = NULL;
-
-    for(int i =0; i<= (len-1); i++)
+    init();
+    while(1)
     {
-        name[i] = *qname++;
-    }
-    for(int m =0;m<=(len-1);m++)
-    {
-        if((strstr(name,"com"))!= NULL)
-        {
-            ptr = strstr(name,"com");
-        }
-        else if((strstr(name,"cn"))!= NULL)
-        {
-            ptr = strstr(name,"cn");
-        }
-        else if((strstr(name,"gov"))!= NULL)
-        {
-            ptr = strstr(name,"gov");
-        }
-        else
-        {
-            ptr = strstr(name,"org");
-        }
-    }
-
-
-}
-void setheader(unsigned char* packet, int* packetlen)
-{
-    packet += *packetlen;
-
-    Header head;
-
-    //主机字节序转网络字节序以传输
-    head.id = htons((unsigned short)clock());
-    head.tag = htons((unsigned short)0x8400);
-    head.queryNum = htons((unsigned short)1);
-    head.answerNum = htons((unsigned short)0);
-    head.authorNum = htons((unsigned short)0);
-    head.addNum = htons((unsigned short)0);
-
-    unsigned char* ptr = (unsigned char*)&head;
-    int i;
-    for (i = 0; i < 12; ++i)
-    {
-        //将header赋值进packet中
-        *packet++ = *ptr++;
-    }
-
-    //更新pakcetlen
-    *packetlen += 12;
-}
-
-void process()
-{
-	while(1)
-    {
-        recvfromSvr(1);
-        udprecvpos = 0;
-        gethead(dnsmessage, &udprecvpos, &header);
-        getquery(dnsmessage, &udprecvpos, &query);
-        findRR(query.qname);
-        udpsendpos = 0;
-        setheader(udpsendpacket, &udpsendpos);
+        recvQuestion();
         setRR();
-        setAddRR();
-        sendtoSvr();
-        /*�ж�ʹ�ú��ֽ�����ʽ*/
-        if(header.tag == 0x0080)
+        addaddrr();
+        /*判断使用何种解析方式*/
+        if(header.tag == htons(0))
         {
             iterantion();
         }
-        else if(header.tag == 0x0180)
+        else if(header.tag == htons(0x0100))
         {
             recursion();
         }
     }
-}
-int main()
-{
-    initSocket();
-    clock();
-    process();
+    closesocket(udp_socket);
+    closesocket(clientSocket);
     return 0;
 }
