@@ -151,9 +151,10 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     ,0表示结尾*/
     for(;;)
     {
-        n = strlen(pos) - (strstr(pos , ".") ? strlen(strstr(pos , ".")) : 0);
-        *ptr ++ = (unsigned char)n;
-        memcpy(ptr , pos , n);
+        // cn为例
+        n = strlen(pos) - (strstr(pos , ".") ? strlen(strstr(pos , ".")) : 0); // 2
+        *ptr ++ = (unsigned char)n; // 指针在 2 后
+        memcpy(ptr , pos , n); // 2cn
         len += n + 1;
         ptr += n;
         if(!strstr(pos , "."))
@@ -168,6 +169,7 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     memcpy(rr_ptr, buf, len);
     rr_ptr += len;
     pos = (char*)str;
+    printf("str: %s\n", pos);
     pos += (len + 2);
     /*因为只考虑A,NS,MX,CNAME四种查询类型
     ，所以只做了匹配第一个字母的简单处理*/
@@ -202,8 +204,10 @@ void addRR(const unsigned char* str, const unsigned char* rname)
         break;
     }
     }
+    // IN
     *((unsigned short*)rr_ptr) = htons(1);
     rr_ptr += 2;
+    // 
     *((unsigned short*)rr_ptr) = htonl(0);
     rr_ptr += 4;
     len = strlen(pos);
@@ -248,6 +252,7 @@ void setRR()
         dname[flag + num] = '.';
         num += (flag + 1);
     }
+    printf("Recieve domain name: %s\n", dname);
     while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//逐行查询
     {
         unsigned char rname[128];//记录一条资源记录中第一个空格前的部分
@@ -272,6 +277,7 @@ void setRR()
         if(containStr(dname, rname, type) == 1)
         {
             addRR(temp_rr, rname);
+            printf("addRR run. rname: %s\n", rname);
         }
         memset(temp_rr, 0, sizeof(temp_rr));
     }
@@ -438,15 +444,16 @@ int main()
         recvQuestion();
         setRR();
         addaddrr();
+        iterantion();
         /*判断使用何种解析方式*/
-        if(header.tag == htons(0))
-        {
-            iterantion();
-        }
-        else if(header.tag == htons(0x0100))
-        {
-            recursion();
-        }
+        // if(header.tag == htons(0))
+        // {
+        //     iterantion();
+        // }
+        // else if(header.tag == htons(0x0100))
+        // {
+        //     recursion();
+        // }
     }
     closesocket(udp_socket);
     closesocket(clientSocket);
