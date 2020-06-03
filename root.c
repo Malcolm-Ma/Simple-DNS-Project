@@ -225,6 +225,7 @@ void setRR()
 {
     unsigned char temp_rr[256];
     getMessage();
+    //目前rr_ptr移动至header+query后面
     memset(rr_ptr, 0, sizeof(dns_message) - len_header_query);//清空报文中的rr部分
     unsigned char* ptr = dns_message;
     ptr += 6;
@@ -240,7 +241,7 @@ void setRR()
     memset(dname, 0, sizeof(dname));
     unsigned char* temp_ptr = query.name;
     int flag, i, num = 0;
-    for(;;)//将query.name转换成标准的域名格式
+    for(;;)//将query.name转换成标准的域名格式，如：www.baidu.com
     {
         flag = (int)temp_ptr[0];
         for(i = 0; i < flag; i++)

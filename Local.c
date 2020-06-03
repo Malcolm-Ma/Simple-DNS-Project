@@ -157,6 +157,7 @@ int main()
             //解析报文
             udprecvpos = 0;
             gethead(udprecvpacket, &udprecvpos, &head);
+            getquery(udprecvpacket, &udprecvpos, &query);
             getrr(udprecvpacket, &udprecvpos, &rr);
 
             switch (head.tag)
