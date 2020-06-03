@@ -322,6 +322,7 @@ int main()
         {
             printf("%s %s\n", rrdb[i].rname, rrdb[i].rdata);
         }
+    break;
     }
 }
 
