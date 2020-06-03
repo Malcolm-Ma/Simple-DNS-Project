@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include "DNS1.h"
 
 Header header;
@@ -69,6 +70,7 @@ void getMessage()//将字符串形式的报文转换成结构体存储方式
     header.id = ntohs(*((unsigned short*)ptr));
     ptr += 2;
     header.tag = ntohs(*((unsigned short*)ptr));
+    *((unsigned short*)ptr) = htons((unsigned short)0x8000);
     ptr += 2;
     header.queryNum = ntohs(*((unsigned short*)ptr));
     ptr += 2;
@@ -177,28 +179,28 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     {
         *((unsigned short*)rr_ptr) = htons(1);
         rr_ptr += 2;
-        pos += 2;
+        pos += 1;
         break;
     }
     case'N':
     {
         *((unsigned short*)rr_ptr) = htons(2);
         rr_ptr += 2;
-        pos += 3;
+        pos += 2;
         break;
     }
     case'C':
     {
         *((unsigned short*)rr_ptr) = htons(5);
         rr_ptr += 2;
-        pos += 6;
+        pos += 5;
         break;
     }
     case'M':
     {
         *((unsigned short*)rr_ptr) = htons(15);
         rr_ptr += 2;
-        pos += 3;
+        pos += 2;
         break;
     }
     }
@@ -207,11 +209,12 @@ void addRR(const unsigned char* str, const unsigned char* rname)
     *((unsigned short*)rr_ptr) = htonl(0);
     rr_ptr += 4;
     len = strlen(pos);
-    len = len - 2;//len - 1是因为从文件中读取的字符串最后一位是回车
+    len = len - 1;//len - 1是因为从文件中读取的字符串最后一位是回车
     *((unsigned short*)rr_ptr) = htons(len);
     rr_ptr += 2;
-    memcpy(rr_ptr, pos, len);
-    rr_ptr += len;
+    rr_ptr = inet_addr(pos);
+    // memcpy(rr_ptr, inet_addr(pos), sizeof(inet_addr(pos)));
+    rr_ptr += sizeof(inet_addr(pos));
 }
 
 /*查询文件中存储的资源记录,查询到符合要求
@@ -404,32 +407,6 @@ void recvAnswer()
     dns_message[err] = '\0';
 }
 
-void iterantion()
-{
-    printf("iteration is working\n");
-    sendAnswer(dns_message);
-}
-
-void recursion()
-{
-    printf("recursion is working\n");
-    getRR(get_rr_ptr);
-    int i;
-    for(i = 0; i < header.answerNum; i++)
-    {
-        if(rr[i].type == 2)
-        {
-            sendQuestion(dns_message, rr[i].rdata);
-            recvAnswer();
-            sendAnswer(dns_message);
-        }
-        else//如果查询类型不为A表示已经查到结果
-        {
-            sendAnswer(dns_message);
-        }
-    }
-}
-
 int main()
 {
     init();
@@ -438,15 +415,7 @@ int main()
         recvQuestion();
         setRR();
         addaddrr();
-        /*判断使用何种解析方式*/
-        if(header.tag == htons(0))
-        {
-            iterantion();
-        }
-        else if(header.tag == htons(0x0100))
-        {
-            recursion();
-        }
+        sendAnswer(dns_message);
     }
     closesocket(udp_socket);
     closesocket(clientSocket);
