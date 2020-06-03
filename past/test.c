@@ -10,9 +10,9 @@ int main ()
     char  subject[100];
     int   book_id;
     };
+    unsigned short a =10;
    struct Books book1;
    struct Books* p = &book1;
    strcpy(p->title, "hello");
-   printf("%lu", sizeof(p->title));
-   printf("%d", ntohs("0x0080"));
+   printf("%d", strlen(a));
 }
