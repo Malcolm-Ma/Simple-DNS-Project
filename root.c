@@ -254,7 +254,7 @@ void setRR()
         dname[flag + num] = '.';
         num += (flag + 1);
     }
-    printf("Recieve domain name: %s\n", dname);
+
     while(fgets(temp_rr, sizeof(temp_rr), fp) != NULL)//逐行查询
     {
         unsigned char rname[128];//记录一条资源记录中第一个空格前的部分
@@ -279,7 +279,6 @@ void setRR()
         if(containStr(dname, rname, type) == 1)
         {
             addRR(temp_rr, rname);
-            printf("addRR run. rname: %s\n", rname);
         }
         memset(temp_rr, 0, sizeof(temp_rr));
     }
@@ -412,32 +411,6 @@ void recvAnswer()
     dns_message[err] = '\0';
 }
 
-void iterantion()
-{
-    printf("iteration is working\n");
-    sendAnswer(dns_message);
-}
-
-void recursion()
-{
-    printf("recursion is working\n");
-    getRR(get_rr_ptr);
-    int i;
-    for(i = 0; i < header.answerNum; i++)
-    {
-        if(rr[i].type == 2)
-        {
-            sendQuestion(dns_message, rr[i].rdata);
-            recvAnswer();
-            sendAnswer(dns_message);
-        }
-        else//如果查询类型不为A表示已经查到结果
-        {
-            sendAnswer(dns_message);
-        }
-    }
-}
-
 int main()
 {
     init();
@@ -446,16 +419,7 @@ int main()
         recvQuestion();
         setRR();
         addaddrr();
-        iterantion();
-        /*判断使用何种解析方式*/
-        // if(header.tag == htons(0))
-        // {
-        //     iterantion();
-        // }
-        // else if(header.tag == htons(0x0100))
-        // {
-        //     recursion();
-        // }
+        sendAnswer(dns_message);
     }
     closesocket(udp_socket);
     closesocket(clientSocket);

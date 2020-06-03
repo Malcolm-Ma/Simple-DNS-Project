@@ -163,7 +163,6 @@ int main()
             switch (head.tag)
             {
             case (unsigned short)0x8000://回答是结果
-                printf("0x8000\n\n");
                 for (i = 2; i < sizeof(udprecvpacket); ++i)
                 {
                     //生成给client的报文，空2个字节
@@ -288,8 +287,6 @@ int main()
                 }
                 break;
             case (unsigned short)0x8400://回答是另一个DNS服务器
-                printf("\n\nin 0x8400\n\n");
-                printf("\nrr.type: %d\n", rr.rtype);
                 if (rr.rtype == 2)//NS
                 {
                     //设置新的ip地址
@@ -297,8 +294,6 @@ int main()
                     udpRemoteAddr.sin_addr.s_addr = inet_addr(ip);
                 }
                 break;
-            default:
-                printf("\n\ndefault...\n\n");
             }
             if (flag == 1)
                 break;
@@ -419,7 +414,6 @@ void getrr(unsigned char* packet, int* packetlen, RR* rr)
     rr->rdata = packet;
     
     *packetlen += rr->datalen + 10 + 1;//计算长度时加回来
-    printf("rr: rname: %s, rtype: %d, rclass: %d, rttl: %d, rdatalen: %d, rdata: %s, \n", rr->rname, rr->rtype, rr->rclass, rr->ttl, rr->datalen, rr->rdata);
 }
 
 void setstdhead(unsigned char* packet, int* packetlen)
