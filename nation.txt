@@ -1,0 +1,3 @@
+Nation
+edu.cn IN NS 127.0.0.6
+gov.us IN NS 127.0.0.7
