@@ -29,26 +29,26 @@
 //DNS服务器ip
 unsigned char ip[64];
 //包缓存
-unsigned char tcpsendpacket[1024];// 发给client的数据缓存区
-unsigned char tcprecvpacket[1024];// client发来的数据缓存区
-unsigned char udpsendpacket[1024];// 发给服务器的数据缓存区
-unsigned char udprecvpacket[1024];// 服务器发来的数据缓存区
+unsigned char tcpsendpacket[1024]; // 发给client的数据缓存区
+unsigned char tcprecvpacket[1024]; // client发来的数据缓存区
+unsigned char udpsendpacket[1024]; // 发给服务器的数据缓存区
+unsigned char udprecvpacket[1024]; // 服务器发来的数据缓存区
 //包指针
-int tcpsendpos,tcprecvpos, udpsendpos, udprecvpos;
+int tcpsendpos, tcprecvpos, udpsendpos, udprecvpos;
 //rr缓存
 RR rrdb[4];
 int rrnum;
 unsigned char db[1024];
-unsigned char* dbptr;
+unsigned char *dbptr;
 //函数表
-void formdomain(unsigned char*);
-void gethead(unsigned char*, int*, struct DNS_Head*);
-void getquery(unsigned char*, int*, struct DNS_Query*);
-void getrr(unsigned char*, int*, struct DNS_RR*);
-void setstdhead(unsigned char*, int*);
-void setreshead(unsigned char*, int*, int id);
-void setaquery(unsigned char*, int*, unsigned char*);
-void setrr(unsigned char*, int*, struct DNS_RR);
+void formdomain(unsigned char *);
+void gethead(unsigned char *, int *, struct DNS_Head *);
+void getquery(unsigned char *, int *, struct DNS_Query *);
+void getrr(unsigned char *, int *, struct DNS_RR *);
+void setstdhead(unsigned char *, int *);
+void setreshead(unsigned char *, int *, int id);
+void setaquery(unsigned char *, int *, unsigned char *);
+void setrr(unsigned char *, int *, struct DNS_RR);
 
 int main()
 {
@@ -61,40 +61,42 @@ int main()
     struct sockaddr_in udpRemoteAddr;
     int udpaddrlen;
 
-    tcpServerSocket = socket(AF_INET, SOCK_STREAM, 0);// 协议族，socket类型，protocol（通常为0）
-    udpSocket = socket(AF_INET, SOCK_DGRAM, 0);// tcp:stream,udp:dgram
-    if(tcpServerSocket < 0){
+    tcpServerSocket = socket(AF_INET, SOCK_STREAM, 0); // 协议族，socket类型，protocol（通常为0）
+    udpSocket = socket(AF_INET, SOCK_DGRAM, 0);        // tcp:stream,udp:dgram
+    if (tcpServerSocket < 0)
+    {
         printf("tcpsocket creation failed\n");
         exit(0);
     }
-    if(udpSocket < 0){
+    if (udpSocket < 0)
+    {
         printf("udpsocket creation failed\n");
         exit(0);
     }
 
     //开始赋值
-    tcpServerAddr.sin_family = AF_INET;//地址族
+    tcpServerAddr.sin_family = AF_INET; //地址族
     tcpServerAddr.sin_port = htons(53); //网络字节序
     tcpServerAddr.sin_addr.s_addr = inet_addr("127.0.0.2");
     udpRemoteAddr.sin_family = AF_INET;
     udpRemoteAddr.sin_port = htons(53);
 
     //配置socket
-    if (bind(tcpServerSocket, (struct sockaddr*)&tcpServerAddr, sizeof(struct sockaddr)) < 0)
+    if (bind(tcpServerSocket, (struct sockaddr *)&tcpServerAddr, sizeof(struct sockaddr)) < 0)
     {
         perror("TCP SOCKET BINDS ERROR!\n");
         exit(0);
     }
-    if (bind(udpSocket, (struct sockaddr*)&tcpServerAddr, sizeof(struct sockaddr)) < 0)
+    if (bind(udpSocket, (struct sockaddr *)&tcpServerAddr, sizeof(struct sockaddr)) < 0)
     {
         perror("UDP SOCKET BINDS ERROR!\n");
         exit(0);
     }
-    listen(tcpServerSocket, 4);//sockfd, backlog(缺省值20)
+    listen(tcpServerSocket, 4); //sockfd, backlog(缺省值20)
     tcpaddrlen = sizeof(struct sockaddr_in);
     udpaddrlen = sizeof(struct sockaddr_in);
     //接受连接，睡眠等待客户请求
-    tcpClientSocket = accept(tcpServerSocket, (struct sockaddr*)&tcpClientAddr, &tcpaddrlen);
+    tcpClientSocket = accept(tcpServerSocket, (struct sockaddr *)&tcpClientAddr, &tcpaddrlen);
     //开始计时
     clock();
     //初始化缓存
@@ -107,14 +109,14 @@ int main()
         strcpy(ip, "127.0.0.3");
         udpRemoteAddr.sin_addr.s_addr = inet_addr(ip);
         //接受client报文
-        recv(tcpClientSocket, tcprecvpacket, sizeof(tcprecvpacket), 0);// flags为0
+        recv(tcpClientSocket, tcprecvpacket, sizeof(tcprecvpacket), 0); // flags为0
         printf("server recv packet from client\n");
 
         Header head;
         Query query;
         RR rr;
         //解析报文
-        tcprecvpos = 2;//额外的2字节
+        tcprecvpos = 2; //额外的2字节
         gethead(tcprecvpacket, &tcprecvpos, &head);
         getquery(tcprecvpacket, &tcprecvpos, &query);
         //查询缓存
@@ -127,7 +129,7 @@ int main()
                 tcpsendpos = 2;
                 setreshead(tcpsendpacket, &tcpsendpos, head.id);
                 setrr(tcpsendpacket, &tcpsendpos, rrdb[i]);
-                *(unsigned short*)tcpsendpacket = htons(tcpsendpos - 2);
+                *(unsigned short *)tcpsendpacket = htons(tcpsendpos - 2);
                 send(tcpClientSocket, tcpsendpacket, tcpsendpos, 0);
                 printf("server send packet to client\n");
                 i = rrnum + 1;
@@ -149,10 +151,10 @@ int main()
         {
             int flag = 0;
             //向根域发送DNS请求报文,udp
-            sendto(udpSocket, udpsendpacket, udpsendpos, 0, (struct sockaddr*)&udpRemoteAddr, sizeof(struct sockaddr));
+            sendto(udpSocket, udpsendpacket, udpsendpos, 0, (struct sockaddr *)&udpRemoteAddr, sizeof(struct sockaddr));
             printf("server send packet to %s\n", ip);
             //接受报文
-            recvfrom(udpSocket, udprecvpacket, sizeof(udprecvpacket), 0, (struct sockaddr*)&udpRemoteAddr, &udpaddrlen);
+            recvfrom(udpSocket, udprecvpacket, sizeof(udprecvpacket), 0, (struct sockaddr *)&udpRemoteAddr, &udpaddrlen);
             printf("server recv packet from %s\n", ip);
             //解析报文
             udprecvpos = 0;
@@ -162,7 +164,7 @@ int main()
 
             switch (head.tag)
             {
-            case (unsigned short)0x8000://回答是结果
+            case (unsigned short)0x8000: //回答是结果
                 for (i = 2; i < sizeof(udprecvpacket); ++i)
                 {
                     //生成给client的报文，空2个字节
@@ -170,14 +172,14 @@ int main()
                 }
                 tcpsendpos = udprecvpos + 2;
                 //将指针位置进行调整
-                *(unsigned short*)tcpsendpacket = htons(tcpsendpos - 2);
+                *(unsigned short *)tcpsendpacket = htons(tcpsendpos - 2);
 
-                if (rr.rtype == 1 || rr.rtype == 2)//A或者NS类型的查询
+                if (rr.rtype == 1 || rr.rtype == 2) //A或者NS类型的查询
                 {
                     flag = 1;
                     break;
                 }
-                else if (rr.rtype == 5)//CNAME类型的查询
+                else if (rr.rtype == 5) //CNAME类型的查询
                 {
                     Header h1;
                     Query q1;
@@ -185,12 +187,12 @@ int main()
                     gethead(udpsendpacket, &udpsendpos, &h1);
                     getquery(udpsendpacket, &udpsendpos, &q1);
 
-                    if (q1.qtype == 5)//发送的查询是CNAME
+                    if (q1.qtype == 5) //发送的查询是CNAME
                     {
                         flag = 1;
                         break;
                     }
-                    else if (q1.qtype == 1)//发送的查询是A 进行第二次查询
+                    else if (q1.qtype == 1) //发送的查询是A 进行第二次查询
                     {
                         //生成查询报文
                         unsigned char domain[64];
@@ -206,11 +208,10 @@ int main()
                         //查询
                         while (1)
                         {
-                            sendto(udpSocket, udpsendpacket, udpsendpos, 0, (struct sockaddr*)&udpRemoteAddr, sizeof(struct sockaddr));
+                            sendto(udpSocket, udpsendpacket, udpsendpos, 0, (struct sockaddr *)&udpRemoteAddr, sizeof(struct sockaddr));
                             printf("server send packet to %s\n", ip);
-                            recvfrom(udpSocket, udprecvpacket, sizeof(udprecvpacket), 0, (struct sockaddr*)&udpRemoteAddr, &udpaddrlen);
+                            recvfrom(udpSocket, udprecvpacket, sizeof(udprecvpacket), 0, (struct sockaddr *)&udpRemoteAddr, &udpaddrlen);
                             printf("server recv packet from %s\n", ip);
-
 
                             Header h2;
                             RR r2;
@@ -233,7 +234,7 @@ int main()
                                     tcpsendpacket[i] = udprecvpacket[i - 2];
                                 }
                                 tcpsendpos = udprecvpos + 2;
-                                *(unsigned short*)tcpsendpacket = htons(tcpsendpos - 2);
+                                *(unsigned short *)tcpsendpacket = htons(tcpsendpos - 2);
                                 flag = 1;
                                 break;
                             }
@@ -241,7 +242,7 @@ int main()
                         break;
                     }
                 }
-                else if (rr.rtype == 15)//MX类型的查询 进行第二次查询
+                else if (rr.rtype == 15) //MX类型的查询 进行第二次查询
                 {
                     //生成查询报文
                     unsigned char domain[64];
@@ -257,10 +258,10 @@ int main()
                     //查询
                     while (1)
                     {
-                        sendto(udpSocket, udpsendpacket, udpsendpos, 0, (struct sockaddr*)&udpRemoteAddr, sizeof(struct sockaddr));
+                        sendto(udpSocket, udpsendpacket, udpsendpos, 0, (struct sockaddr *)&udpRemoteAddr, sizeof(struct sockaddr));
                         printf("server send packet to %s\n", ip);
 
-                        recvfrom(udpSocket, udprecvpacket, sizeof(udprecvpacket), 0, (struct sockaddr*)&udpRemoteAddr, &udpaddrlen);
+                        recvfrom(udpSocket, udprecvpacket, sizeof(udprecvpacket), 0, (struct sockaddr *)&udpRemoteAddr, &udpaddrlen);
                         printf("server recv packet from %s\n", ip);
 
                         Header h2;
@@ -269,16 +270,16 @@ int main()
                         gethead(udprecvpacket, &udprecvpos, &h2);
                         getrr(udprecvpacket, &udprecvpos, &r2);
 
-                        if (r2.rtype == 2)// NS
+                        if (r2.rtype == 2) // NS
                         {
                             strcpy(ip, r2.rdata);
                             udpRemoteAddr.sin_addr.s_addr = inet_addr(ip);
                         }
-                        else if (r2.rtype == 1)// A
+                        else if (r2.rtype == 1) // A
                         {
-                            *(unsigned short*)(tcpsendpacket + 12) = htons(1);
+                            *(unsigned short *)(tcpsendpacket + 12) = htons(1);
                             setrr(tcpsendpacket, &tcpsendpos, r2);
-                            *(unsigned short*)tcpsendpacket = htons(tcpsendpos - 2);
+                            *(unsigned short *)tcpsendpacket = htons(tcpsendpos - 2);
                             flag = 1;
                             break;
                         }
@@ -286,8 +287,8 @@ int main()
                     break;
                 }
                 break;
-            case (unsigned short)0x8400://回答是另一个DNS服务器
-                if (rr.rtype == 2)//NS
+            case (unsigned short)0x8400: //回答是另一个DNS服务器
+                if (rr.rtype == 2)       //NS
                 {
                     //设置新的ip地址
                     strcpy(ip, rr.rdata);
@@ -318,15 +319,14 @@ int main()
         }
         //打印cache
         printf("cache:\n");
-	for (i = 0; i < rrnum; ++i)
+        for (i = 0; i < rrnum; ++i)
         {
             printf("%s %s\n", rrdb[i].rname, rrdb[i].rdata);
         }
-    break;
     }
 }
 
-void formdomain(unsigned char* domain)
+void formdomain(unsigned char *domain)
 {
     unsigned char dotdomain[64];
     int i = 0;
@@ -338,8 +338,8 @@ void formdomain(unsigned char* domain)
     dotdomain[i] = '\0';
 
     int counter;
-    unsigned char* flag;
-    unsigned char* ptr = dotdomain;
+    unsigned char *flag;
+    unsigned char *ptr = dotdomain;
     while (1)
     {
         counter = 0;
@@ -362,12 +362,12 @@ void formdomain(unsigned char* domain)
     }
 }
 
-void gethead(unsigned char* packet, int* packetlen, Header* head)
+void gethead(unsigned char *packet, int *packetlen, Header *head)
 {
-    packet += *packetlen;//整个报文需要向后移动两个元素以读取
+    packet += *packetlen; //整个报文需要向后移动两个元素以读取
 
     //将packet中数据强制转换类型并让head指向packet
-    *head = *(Header*)packet;
+    *head = *(Header *)packet;
 
     //网络字节序转换为主机字节序
     head->id = ntohs(head->id);
@@ -377,25 +377,25 @@ void gethead(unsigned char* packet, int* packetlen, Header* head)
     head->authorNum = ntohs(head->authorNum);
     head->addNum = ntohs(head->addNum);
 
-    *packetlen += 12;// 2+12=14，每项两个字节*6 = 12
+    *packetlen += 12; // 2+12=14，每项两个字节*6 = 12
 }
 
-void getquery(unsigned char* packet, int* packetlen, Query* query)
+void getquery(unsigned char *packet, int *packetlen, Query *query)
 {
-    packet += *packetlen;//（header部分+2）以读取query
+    packet += *packetlen; //（header部分+2）以读取query
 
-    query->qname = packet;// name长度不固定
-    *packetlen += strlen(packet) + 1;//加上结束符 /0
+    query->qname = packet;            // name长度不固定
+    *packetlen += strlen(packet) + 1; //加上结束符 /0
     //继续读取
     packet += strlen(packet) + 1;
-    query->qtype = ntohs(*(unsigned short*)packet);
+    query->qtype = ntohs(*(unsigned short *)packet);
     packet += 2;
-    query->qclass = ntohs(*(unsigned short*)packet);
+    query->qclass = ntohs(*(unsigned short *)packet);
 
-    *packetlen += 4;//2*2
+    *packetlen += 4; //2*2
 }
 
-void getrr(unsigned char* packet, int* packetlen, RR* rr)
+void getrr(unsigned char *packet, int *packetlen, RR *rr)
 {
     packet += *packetlen;
 
@@ -403,21 +403,21 @@ void getrr(unsigned char* packet, int* packetlen, RR* rr)
     *packetlen += strlen(packet) + 1;
     packet += strlen(packet) + 1;
 
-    rr->rtype = ntohs(*(unsigned short*)packet);
+    rr->rtype = ntohs(*(unsigned short *)packet);
     packet += 2;
-    rr->rclass = ntohs(*(unsigned short*)packet);
+    rr->rclass = ntohs(*(unsigned short *)packet);
     packet += 2;
-    rr->ttl += ntohl(*(unsigned int*)packet);
+    rr->ttl += ntohl(*(unsigned int *)packet);
     packet += 4;
-    rr->datalen = ntohs(*(unsigned short*)packet) - 1;//减掉data最后的‘/0’
+    rr->datalen = ntohs(*(unsigned short *)packet) - 1; //减掉data最后的‘/0’
     packet += 2;
     packet++;
     rr->rdata = packet;
-    
-    *packetlen += rr->datalen + 10 + 1;//计算长度时加回来
+
+    *packetlen += rr->datalen + 10 + 1; //计算长度时加回来
 }
 
-void setstdhead(unsigned char* packet, int* packetlen)
+void setstdhead(unsigned char *packet, int *packetlen)
 {
     packet += *packetlen;
 
@@ -431,7 +431,7 @@ void setstdhead(unsigned char* packet, int* packetlen)
     head.authorNum = htons((unsigned short)0);
     head.addNum = htons((unsigned short)0);
 
-    unsigned char* ptr = (unsigned char*)&head;
+    unsigned char *ptr = (unsigned char *)&head;
     int i;
     for (i = 0; i < 12; ++i)
     {
@@ -443,7 +443,7 @@ void setstdhead(unsigned char* packet, int* packetlen)
     *packetlen += 12;
 }
 
-void setreshead(unsigned char* packet, int* packetlen, int id)
+void setreshead(unsigned char *packet, int *packetlen, int id)
 {
     packet += *packetlen;
 
@@ -456,7 +456,7 @@ void setreshead(unsigned char* packet, int* packetlen, int id)
     head.authorNum = htons((unsigned short)0);
     head.addNum = htons((unsigned short)0);
 
-    unsigned char* ptr = (unsigned char*)&head;
+    unsigned char *ptr = (unsigned char *)&head;
     int i;
     for (i = 0; i < 12; ++i)
     {
@@ -466,52 +466,52 @@ void setreshead(unsigned char* packet, int* packetlen, int id)
     *packetlen += 12;
 }
 
-void setaquery(unsigned char* packet, int* packetlen, unsigned char* domain)
+void setaquery(unsigned char *packet, int *packetlen, unsigned char *domain)
 {
     Query query;
 
     query.qname = domain;
-    query.qtype = htons(1);//A
+    query.qtype = htons(1); //A
     query.qclass = htons(1);
 
     //移动指针，准备query
     packet += *packetlen;
 
     int i;
-    unsigned char* ptr = query.qname;
-    for (i = 0; i < strlen((char*)query.qname) + 1; ++i)
+    unsigned char *ptr = query.qname;
+    for (i = 0; i < strlen((char *)query.qname) + 1; ++i)
     {
         //query放入packet
         *packet++ = *ptr++;
     }
-    *packetlen += strlen((char*)query.qname) + 1;
+    *packetlen += strlen((char *)query.qname) + 1;
 
-    *(unsigned short*)packet = query.qtype;
+    *(unsigned short *)packet = query.qtype;
     packet += 2;
-    *(unsigned short*)packet = query.qclass;
+    *(unsigned short *)packet = query.qclass;
 
     *packetlen += 4;
 }
 
-void setrr(unsigned char* packet, int* packetlen, RR rr)
+void setrr(unsigned char *packet, int *packetlen, RR rr)
 {
     packet += *packetlen;
 
     int i;
-    unsigned char* ptr = rr.rname;
+    unsigned char *ptr = rr.rname;
     for (i = 0; i < strlen(rr.rname) + 1; ++i)
     {
         *packet++ = *ptr++;
     }
     *packetlen += strlen(rr.rname) + 1;
 
-    *(unsigned short*)packet = htons(rr.rtype);
+    *(unsigned short *)packet = htons(rr.rtype);
     packet += 2;
-    *(unsigned short*)packet = htons(rr.rclass);
+    *(unsigned short *)packet = htons(rr.rclass);
     packet += 2;
-    *(unsigned int*)packet = htonl(rr.ttl);
+    *(unsigned int *)packet = htonl(rr.ttl);
     packet += 4;
-    *(unsigned short*)packet = htons(rr.datalen + 1);
+    *(unsigned short *)packet = htons(rr.datalen + 1);
     packet += 2;
     *packet++ = 0x68;
     ptr = rr.rdata;
@@ -521,14 +521,3 @@ void setrr(unsigned char* packet, int* packetlen, RR rr)
     }
     *packetlen += rr.datalen + 10 + 1;
 }
-
-
-
-
-
-
-
-
-
-
-
