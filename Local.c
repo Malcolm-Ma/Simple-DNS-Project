@@ -1,31 +1,5 @@
-#include "dns.h"
-//数据结构
-// struct DNS_Head
-// {
-//     unsigned short id;
-//     unsigned short tag;
-//     unsigned short queryNum;
-//     unsigned short answerNum;
-//     unsigned short authorNum;
-//     unsigned short addNum;
-// };
+#include "DNS1.h"
 
-// struct DNS_Query
-// {
-//     unsigned char *qname;
-//     unsigned short qtype;
-//     unsigned short qclass;
-// };
-
-// struct DNS_RR
-// {
-//     unsigned char *rname;
-//     unsigned short rtype;
-//     unsigned short rclass;
-//     unsigned int ttl;
-//     unsigned short datalen;
-//     unsigned char *rdata;
-// };
 //DNS服务器ip
 unsigned char ip[64];
 //包缓存
@@ -42,7 +16,7 @@ unsigned char db[1024];
 unsigned char *dbptr;
 //函数表
 void formdomain(unsigned char *);
-void gethead(unsigned char *, int *, struct DNS_Head *);
+void gethead(unsigned char *, int *, struct DNS_Header *);
 void getquery(unsigned char *, int *, struct DNS_Query *);
 void getrr(unsigned char *, int *, struct DNS_RR *);
 void setstdhead(unsigned char *, int *);
@@ -123,7 +97,7 @@ int main()
         int i;
         for (i = 0; i < rrnum; ++i)
         {
-            if (strcmp(rrdb[i].rname, query.qname) == 0 && rrdb[i].rtype == query.qtype)
+            if (strcmp(rrdb[i].name, query.name) == 0 && rrdb[i].type == query.qtype)
             {
                 printf("using cache\n");
                 tcpsendpos = 2;
@@ -174,12 +148,12 @@ int main()
                 //将指针位置进行调整
                 *(unsigned short *)tcpsendpacket = htons(tcpsendpos - 2);
 
-                if (rr.rtype == 1 || rr.rtype == 2) //A或者NS类型的查询
+                if (rr.type == 1 || rr.type == 2) //A或者NS类型的查询
                 {
                     flag = 1;
                     break;
                 }
-                else if (rr.rtype == 5) //CNAME类型的查询
+                else if (rr.type == 5) //CNAME类型的查询
                 {
                     Header h1;
                     Query q1;
@@ -219,13 +193,13 @@ int main()
                             gethead(udprecvpacket, &udprecvpos, &h2);
                             getrr(udprecvpacket, &udprecvpos, &r2);
 
-                            if (r2.rtype == 2)
+                            if (r2.type == 2)
                             {
                                 //更新ip地址，若为NS类型，则继续向下一服务器进行请求
                                 strcpy(ip, r2.rdata);
                                 udpRemoteAddr.sin_addr.s_addr = inet_addr(ip);
                             }
-                            else if (r2.rtype == 1)
+                            else if (r2.type == 1)
                             {
                                 //直到查到A记录，证明查到
                                 for (i = 2; i < sizeof(udprecvpacket); ++i)
@@ -242,7 +216,7 @@ int main()
                         break;
                     }
                 }
-                else if (rr.rtype == 15) //MX类型的查询 进行第二次查询
+                else if (rr.type == 15) //MX类型的查询 进行第二次查询
                 {
                     //生成查询报文
                     unsigned char domain[64];
@@ -270,12 +244,12 @@ int main()
                         gethead(udprecvpacket, &udprecvpos, &h2);
                         getrr(udprecvpacket, &udprecvpos, &r2);
 
-                        if (r2.rtype == 2) // NS
+                        if (r2.type == 2) // NS
                         {
                             strcpy(ip, r2.rdata);
                             udpRemoteAddr.sin_addr.s_addr = inet_addr(ip);
                         }
-                        else if (r2.rtype == 1) // A
+                        else if (r2.type == 1) // A
                         {
                             *(unsigned short *)(tcpsendpacket + 12) = htons(1);
                             setrr(tcpsendpacket, &tcpsendpos, r2);
@@ -288,7 +262,7 @@ int main()
                 }
                 break;
             case (unsigned short)0x8400: //回答是另一个DNS服务器
-                if (rr.rtype == 2)       //NS
+                if (rr.type == 2)       //NS
                 {
                     //设置新的ip地址
                     strcpy(ip, rr.rdata);
@@ -307,13 +281,13 @@ int main()
         tcpsendpos = 2;
         gethead(tcpsendpacket, &tcpsendpos, &head);
         getrr(tcpsendpacket, &tcpsendpos, &rrdb[rrnum]);
-        if (rrdb[rrnum].rtype != 15)
+        if (rrdb[rrnum].type != 15)
         {
-            strcpy(dbptr, rrdb[rrnum].rname);
-            rrdb[rrnum].rname = dbptr;
+            strcpy(dbptr, rrdb[rrnum].name);
+            memcpy(rrdb[rrnum].name, dbptr, sizeof(dbptr));
             dbptr += strlen(dbptr) + 1;
             strcpy(dbptr, rrdb[rrnum].rdata);
-            rrdb[rrnum].rdata = dbptr;
+            memcpy(rrdb[rrnum].rdata, dbptr, sizeof(dbptr));
             dbptr += strlen(dbptr) + 1;
             rrnum++;
         }
@@ -321,7 +295,7 @@ int main()
         printf("cache:\n");
         for (i = 0; i < rrnum; ++i)
         {
-            printf("%s %s\n", rrdb[i].rname, rrdb[i].rdata);
+            printf("%s %s\n", rrdb[i].name, rrdb[i].rdata);
         }
     }
 }
@@ -383,8 +357,8 @@ void gethead(unsigned char *packet, int *packetlen, Header *head)
 void getquery(unsigned char *packet, int *packetlen, Query *query)
 {
     packet += *packetlen; //（header部分+2）以读取query
-
-    query->qname = packet;            // name长度不固定
+    
+    strcpy(query->name, packet);      // name长度不固定
     *packetlen += strlen(packet) + 1; //加上结束符 /0
     //继续读取
     packet += strlen(packet) + 1;
@@ -399,22 +373,22 @@ void getrr(unsigned char *packet, int *packetlen, RR *rr)
 {
     packet += *packetlen;
 
-    rr->rname = packet;
+    strcpy(rr->name, packet);
     *packetlen += strlen(packet) + 1;
     packet += strlen(packet) + 1;
 
-    rr->rtype = ntohs(*(unsigned short *)packet);
+    rr->type = ntohs(*(unsigned short *)packet);
     packet += 2;
-    rr->rclass = ntohs(*(unsigned short *)packet);
+    rr->_class = ntohs(*(unsigned short *)packet);
     packet += 2;
     rr->ttl += ntohl(*(unsigned int *)packet);
     packet += 4;
-    rr->datalen = ntohs(*(unsigned short *)packet) - 1; //减掉data最后的‘/0’
+    rr->data_len = ntohs(*(unsigned short *)packet) - 1; //减掉data最后的‘/0’
     packet += 2;
     packet++;
-    rr->rdata = packet;
+    strcpy(rr->rdata, packet);
 
-    *packetlen += rr->datalen + 10 + 1; //计算长度时加回来
+    *packetlen += rr->data_len + 10 + 1; //计算长度时加回来
 }
 
 void setstdhead(unsigned char *packet, int *packetlen)
@@ -470,7 +444,7 @@ void setaquery(unsigned char *packet, int *packetlen, unsigned char *domain)
 {
     Query query;
 
-    query.qname = domain;
+    memcpy(query.name, domain, sizeof(domain));
     query.qtype = htons(1); //A
     query.qclass = htons(1);
 
@@ -478,13 +452,13 @@ void setaquery(unsigned char *packet, int *packetlen, unsigned char *domain)
     packet += *packetlen;
 
     int i;
-    unsigned char *ptr = query.qname;
-    for (i = 0; i < strlen((char *)query.qname) + 1; ++i)
+    unsigned char *ptr = query.name;
+    for (i = 0; i < strlen((char *)query.name) + 1; ++i)
     {
         //query放入packet
         *packet++ = *ptr++;
     }
-    *packetlen += strlen((char *)query.qname) + 1;
+    *packetlen += strlen((char *)query.name) + 1;
 
     *(unsigned short *)packet = query.qtype;
     packet += 2;
@@ -498,26 +472,26 @@ void setrr(unsigned char *packet, int *packetlen, RR rr)
     packet += *packetlen;
 
     int i;
-    unsigned char *ptr = rr.rname;
-    for (i = 0; i < strlen(rr.rname) + 1; ++i)
+    unsigned char *ptr = rr.name;
+    for (i = 0; i < strlen(rr.name) + 1; ++i)
     {
         *packet++ = *ptr++;
     }
-    *packetlen += strlen(rr.rname) + 1;
+    *packetlen += strlen(rr.name) + 1;
 
-    *(unsigned short *)packet = htons(rr.rtype);
+    *(unsigned short *)packet = htons(rr.type);
     packet += 2;
-    *(unsigned short *)packet = htons(rr.rclass);
+    *(unsigned short *)packet = htons(rr._class);
     packet += 2;
     *(unsigned int *)packet = htonl(rr.ttl);
     packet += 4;
-    *(unsigned short *)packet = htons(rr.datalen + 1);
+    *(unsigned short *)packet = htons(rr.data_len + 1);
     packet += 2;
     *packet++ = 0x68;
     ptr = rr.rdata;
-    for (i = 0; i < rr.datalen; ++i)
+    for (i = 0; i < rr.data_len; ++i)
     {
         *packet++ = *ptr++;
     }
-    *packetlen += rr.datalen + 10 + 1;
+    *packetlen += rr.data_len + 10 + 1;
 }

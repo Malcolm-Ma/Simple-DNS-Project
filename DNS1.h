@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #define CLIENT_SVR "127.0.0.1"
 #define LOCAL_SVR "127.0.0.2"
