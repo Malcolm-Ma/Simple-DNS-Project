@@ -9,12 +9,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define CLIENT_SVR "127.0.0.1"
 #define LOCAL_SVR "127.0.0.2"
 #define ROOT_SVR "127.0.0.3"
 #define NATION_SVR "127.0.0.4"
-#define OTHER_SVR "127.0.0.5"
+#define ORG_SVR "127.0.0.5"
 #define EDU_SVR "127.0.0.6"
 #define GOV_SVR "127.0.0.7"
 #define PORT 53

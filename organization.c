@@ -19,7 +19,7 @@ void init()
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT);
-    addr.sin_addr.s_addr = inet_addr(GOV_SVR);
+    addr.sin_addr.s_addr = inet_addr(ORG_SVR);
     err = bind(udp_socket, (struct sockaddr *)&addr, sizeof(struct sockaddr));
     if (err < 0)
     {
@@ -266,7 +266,7 @@ void setRR()
     ptr += 6;
     *((unsigned short *)ptr) = 0; //报头的资源记录数置零
     FILE *fp;
-    fp = fopen("gov.txt", "r");
+    fp = fopen("organization.txt", "r");
     if (fp == NULL)
     {
         printf("the file cannot be opened");
@@ -336,7 +336,7 @@ void addaddrr()
             unsigned char temp_rr[256];
             unsigned char type; //记录第二个空格后的字符，也就是RR类型的首字母
             FILE *fp;
-            fp = fopen("gov.txt", "r");
+            fp = fopen("organization.txt", "r");
             if (fp == NULL)
             {
                 printf("the file cannot be opened");
