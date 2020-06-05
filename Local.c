@@ -69,8 +69,6 @@ int main()
     listen(tcpServerSocket, 4); //sockfd, backlog(缺省值20)
     tcpaddrlen = sizeof(struct sockaddr_in);
     udpaddrlen = sizeof(struct sockaddr_in);
-    //接受连接，睡眠等待客户请求
-    tcpClientSocket = accept(tcpServerSocket, (struct sockaddr *)&tcpClientAddr, &tcpaddrlen);
     //开始计时
     clock();
     //初始化缓存
@@ -79,6 +77,8 @@ int main()
 
     while (1)
     {
+        //接受连接，睡眠等待客户请求
+        tcpClientSocket = accept(tcpServerSocket, (struct sockaddr *)&tcpClientAddr, &tcpaddrlen);
         //初始化rootDNS服务器ip
         strcpy(ip, "127.0.0.3");
         udpRemoteAddr.sin_addr.s_addr = inet_addr(ip);
@@ -160,7 +160,7 @@ int main()
                     udpsendpos = 0;
                     gethead(udpsendpacket, &udpsendpos, &h1);
                     getquery(udpsendpacket, &udpsendpos, &q1);
-
+                    printf("q1type:%d\n",q1.qtype);
                     if (q1.qtype == 5) //发送的查询是CNAME
                     {
                         flag = 1;
@@ -297,6 +297,7 @@ int main()
         {
             printf("%s %s\n", rrdb[i].name, rrdb[i].rdata);
         }
+        close(tcpClientSocket);
     }
 }
 

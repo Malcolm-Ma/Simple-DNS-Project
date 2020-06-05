@@ -251,8 +251,9 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     {
         *((unsigned short *)rr_ptr) = htons(len);
         rr_ptr += 2;
-        memcpy(rr_ptr, pos - 1, len + 1);
-        rr_ptr += (len + 1);
+        memcpy(rr_ptr, pos-1, len + 2);
+        rr_ptr += (len + 2);
+        printf("pos:%s\n", pos-1);
     }
 }
 

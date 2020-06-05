@@ -502,20 +502,8 @@ int main(int argc, char **argv) {
 	connect(server_socket, (struct sockaddr *) &server_add, sizeof(server_add));
 
 	//表明递归或迭代
-	int rd;
-	rd1:
-	printf("1. Recursive or 0. Iterative ?\n");
-	scanf("%d", &rd);
-
-	if (rd != 0 && rd != 1) {
-		printf("Wrong input!\n");
-		goto rd1;
-	}
-
-	int query_num;
-	printf("Queries amount?\n");
-	scanf("%d", &query_num);
-
+	int rd = 0;
+	int query_num = 1;
 	bzero(buf, 512);
 
 	size_t loc = sizeof(uint16_t);
