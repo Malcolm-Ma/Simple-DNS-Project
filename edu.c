@@ -249,7 +249,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     }
     else
     {
-        *((unsigned short *)rr_ptr) = htons(len);
+        *((unsigned short *)rr_ptr) = htons(len + 20);
         rr_ptr += 2;
         memcpy(rr_ptr, pos-1, len + 2);
         rr_ptr += (len + 2);

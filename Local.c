@@ -3,7 +3,7 @@
 //DNS服务器ip
 unsigned char ip[64];
 //包缓存
-unsigned char tcpsendpacket[1024]; // 发给client的数据缓存区
+unsigned char tcpsendpacket[1024] = {0}; // 发给client的数据缓存区
 unsigned char tcprecvpacket[1024]; // client发来的数据缓存区
 unsigned char udpsendpacket[1024]; // 发给服务器的数据缓存区
 unsigned char udprecvpacket[1024]; // 服务器发来的数据缓存区
