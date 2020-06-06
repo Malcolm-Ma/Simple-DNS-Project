@@ -188,9 +188,11 @@ int main()
                             printf("server recv packet from %s\n", ip);
 
                             Header h2;
+                            Query q2;
                             RR r2;
                             udprecvpos = 0;
                             gethead(udprecvpacket, &udprecvpos, &h2);
+                            getquery(udprecvpacket,&udprecvpos, &q2);
                             getrr(udprecvpacket, &udprecvpos, &r2);
 
                             if (r2.type == 2)
@@ -222,7 +224,6 @@ int main()
                     unsigned char domain[64];
                     strcpy(domain, rr.rdata);
                     formdomain(domain);
-
                     udpsendpos = 0;
                     setstdhead(udpsendpacket, &udpsendpos);
                     setaquery(udpsendpacket, &udpsendpos, domain);
@@ -443,27 +444,27 @@ void setreshead(unsigned char *packet, int *packetlen, int id)
 
 void setaquery(unsigned char *packet, int *packetlen, unsigned char *domain)
 {
-    Query query;
+    Query query1;
 
-    memcpy(query.name, domain, sizeof(domain));
-    query.qtype = htons(1); //A
-    query.qclass = htons(1);
+    strcpy((char*)query1.name, (char*)domain);
+    printf("%s", domain);
+    query1.qtype = htons(1); //A
+    query1.qclass = htons(1);
 
     //移动指针，准备query
     packet += *packetlen;
 
     int i;
-    unsigned char *ptr = query.name;
-    for (i = 0; i < strlen((char *)query.name) + 1; ++i)
+    unsigned char *ptr = query1.name;
+    for (i = 0; i < strlen((char *)query1.name) + 1; ++i)
     {
         //query放入packet
         *packet++ = *ptr++;
     }
-    *packetlen += strlen((char *)query.name) + 1;
-
-    *(unsigned short *)packet = query.qtype;
+    *packetlen += strlen((char *)query1.name) + 1;
+    *(unsigned short *)packet = query1.qtype;
     packet += 2;
-    *(unsigned short *)packet = query.qclass;
+    *(unsigned short *)packet = query1.qclass;
 
     *packetlen += 4;
 }
