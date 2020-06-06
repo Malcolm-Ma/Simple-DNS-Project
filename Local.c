@@ -7,7 +7,7 @@ unsigned char tcpsendpacket[1024] = {0}; // 发给client的数据缓存区
 unsigned char tcprecvpacket[1024]; // client发来的数据缓存区
 unsigned char udpsendpacket[1024]; // 发给服务器的数据缓存区
 unsigned char udprecvpacket[1024]; // 服务器发来的数据缓存区
-//包指针
+//包位置、长度
 int tcpsendpos, tcprecvpos, udpsendpos, udprecvpos;
 //rr缓存
 RR rrdb[4];
@@ -49,11 +49,13 @@ int main()
     }
 
     //开始赋值
+    //TCP设置
     tcpServerAddr.sin_family = AF_INET; //地址族
     tcpServerAddr.sin_port = htons(53); //网络字节序
-    tcpServerAddr.sin_addr.s_addr = inet_addr("127.0.0.2");
+    tcpServerAddr.sin_addr.s_addr = inet_addr(LOCAL_SVR);
+    //UDP设置
     udpRemoteAddr.sin_family = AF_INET;
-    udpRemoteAddr.sin_port = htons(53);
+    udpRemoteAddr.sin_port = htons(PORT);
 
     //配置socket
     if (bind(tcpServerSocket, (struct sockaddr *)&tcpServerAddr, sizeof(struct sockaddr)) < 0)
@@ -80,7 +82,7 @@ int main()
         //接受连接，睡眠等待客户请求
         tcpClientSocket = accept(tcpServerSocket, (struct sockaddr *)&tcpClientAddr, &tcpaddrlen);
         //初始化rootDNS服务器ip
-        strcpy(ip, "127.0.0.3");
+        strcpy(ip, ROOT_SVR);
         udpRemoteAddr.sin_addr.s_addr = inet_addr(ip);
         //接受client报文
         recv(tcpClientSocket, tcprecvpacket, sizeof(tcprecvpacket), 0); // flags为0
@@ -89,8 +91,8 @@ int main()
         Header head;
         Query query;
         RR rr;
-        //解析报文
-        tcprecvpos = 2; //额外的2字节
+        //解析client TCP报文
+        tcprecvpos = 2; //TCP额外的2字节
         gethead(tcprecvpacket, &tcprecvpos, &head);
         getquery(tcprecvpacket, &tcprecvpos, &query);
         //查询缓存
@@ -224,6 +226,7 @@ int main()
                     unsigned char domain[64];
                     strcpy(domain, rr.rdata);
                     formdomain(domain);
+                    memset(udpsendpacket,0,sizeof(udpsendpacket));
                     udpsendpos = 0;
                     setstdhead(udpsendpacket, &udpsendpos);
                     setaquery(udpsendpacket, &udpsendpos, domain);
@@ -340,7 +343,7 @@ void formdomain(unsigned char *domain)
 
 void gethead(unsigned char *packet, int *packetlen, Header *head)
 {
-    packet += *packetlen; //整个报文需要向后移动两个元素以读取
+    packet += *packetlen; //TCP整个报文需要向后移动两个元素以读取,UDP此处为0
 
     //将packet中数据强制转换类型并让head指向packet
     *head = *(Header *)packet;
@@ -445,9 +448,9 @@ void setreshead(unsigned char *packet, int *packetlen, int id)
 void setaquery(unsigned char *packet, int *packetlen, unsigned char *domain)
 {
     Query query1;
-
-    strcpy((char*)query1.name, (char*)domain);
-    printf("%s", domain);
+    
+    strcpy(query1.name, domain);
+    printf("%s\n", domain);
     query1.qtype = htons(1); //A
     query1.qclass = htons(1);
 
