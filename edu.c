@@ -236,7 +236,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     }
     else if (flag == 2)
     {
-        *((unsigned short *)rr_ptr) = htons(len);
+        *((unsigned short *)rr_ptr) = htons(len + 4);
         rr_ptr += 2;
         memcpy(rr_ptr, pos - 3, 2);
         rr_ptr += 2;

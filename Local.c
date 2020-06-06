@@ -104,6 +104,7 @@ int main()
                 printf("using cache\n");
                 tcpsendpos = 2;
                 setreshead(tcpsendpacket, &tcpsendpos, head.id);
+                // setaquery(tcpsendpacket, &tcpsendpos, query.name);
                 setrr(tcpsendpacket, &tcpsendpos, rrdb[i]);
                 *(unsigned short *)tcpsendpacket = htons(tcpsendpos - 2);
                 send(tcpClientSocket, tcpsendpacket, tcpsendpos, 0);
@@ -225,6 +226,7 @@ int main()
                     //生成查询报文
                     unsigned char domain[64];
                     strcpy(domain, rr.rdata);
+                    printf("domain:%s\n", domain);
                     formdomain(domain);
                     memset(udpsendpacket,0,sizeof(udpsendpacket));
                     udpsendpos = 0;
@@ -243,9 +245,11 @@ int main()
                         printf("server recv packet from %s\n", ip);
 
                         Header h2;
+                        Query q2;
                         RR r2;
                         udprecvpos = 0;
                         gethead(udprecvpacket, &udprecvpos, &h2);
+                        getquery(udprecvpacket,&udprecvpos, &q2);
                         getrr(udprecvpacket, &udprecvpos, &r2);
 
                         if (r2.type == 2) // NS
@@ -284,6 +288,7 @@ int main()
         rrnum = rrnum % 4;
         tcpsendpos = 2;
         gethead(tcpsendpacket, &tcpsendpos, &head);
+        getquery(tcpsendpacket, &tcpsendpos, &query);
         getrr(tcpsendpacket, &tcpsendpos, &rrdb[rrnum]);
         if (rrdb[rrnum].type != 15)
         {
@@ -390,8 +395,14 @@ void getrr(unsigned char *packet, int *packetlen, RR *rr)
     packet += 4;
     rr->data_len = ntohs(*(unsigned short *)packet) - 1; //减掉data最后的‘/0’
     packet += 2;
-    packet++;
-    strcpy(rr->rdata, packet);
+    if (rr->type == 15)
+    {
+        packet += 3;
+        strcpy(rr->rdata, packet);
+    } else {
+        packet++;
+        strcpy(rr->rdata, packet);
+    }
 
     *packetlen += rr->data_len + 10 + 1; //计算长度时加回来
 }
