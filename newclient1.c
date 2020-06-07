@@ -380,6 +380,14 @@ struct header *read_header(size_t *loc, unsigned char *reader) {
 	unsigned short tag;
 	memcpy(&tag, reader, sizeof(tag));
 	tag = ntohs(tag);
+	unsigned short* tag_ptr = &tag;
+	struct header_flags flags;
+	struct header_flags* flag_ptr;
+	flag_ptr =&flags;
+	*flag_ptr = *(struct header_flags*)tag_ptr;
+	
+
+
 	//header->tag = malloc(sizeof((header->tag)));
 	memcpy(&(header->tag), &tag, sizeof((tag)));
 	reader += sizeof((header->tag));
@@ -410,31 +418,31 @@ struct header *read_header(size_t *loc, unsigned char *reader) {
 	reader += sizeof(header->add_rr);
 	*loc += sizeof(header->add_rr);
 
-	// if (header->flags->qr == 1) {
-	// 	if (header->flags->aa)
-	// 		printf("Authoritative response. ");
-	// 	else
-	// 		printf("Non-authoritative response. ");
-	// }
+	if (flags.qr == 1) {
+		if (flags.aa)
+			printf("Authoritative response. ");
+		else
+			printf("Non-authoritative response. ");
+	}
 
-	// if (header->flags->rd == 1)
-	// 	printf("Recursive query. ");
-	// else
-	// 	printf("Iterative query. ");
+	if (flags.rd == 1)
+		printf("Recursive query. ");
+	else
+		printf("Iterative query. ");
 
-	// if (header->flags->qr == 1) {
-	// 	if (header->flags->ra)
-	// 		printf("Server can do recursive queries. ");
-	// 	else
-	// 		printf("Server cannot do recursive queries. ");
+	if (flags.qr == 1) {
+		if (flags.ra)
+			printf("Server can do recursive queries. ");
+		else
+			printf("Server cannot do recursive queries. ");
 
-	// 	if (header->flags->rcode == 0)
-	// 		printf("No error. ");
-	// 	else if (header->flags->rcode == 2)
-	// 		printf("Server failure. ");
-	// 	else if (header->flags->rcode == 3)
-	// 		printf("No such name. ");
-	// }
+		if (flags.rcode == 0)
+			printf("No error. ");
+		else if (flags.rcode == 2)
+			printf("Server failure. ");
+		else if (flags.rcode == 3)
+			printf("No such name. ");
+	}
 
 	printf("\n");
 
