@@ -1,5 +1,4 @@
-#include <arpa/inet.h>
-#include "DNS1.h"
+#include "dns.h"
 
 Header header;
 Query query;

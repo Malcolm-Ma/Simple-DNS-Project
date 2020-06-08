@@ -1,56 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <sys/time.h>
-#include <memory.h>
-#include <strings.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#define DNS_TYPE_A                              1
-#define DNS_TYPE_NS                             2
-#define DNS_TYPE_CNAME                          5
-#define DNS_TYPE_PTR                            12
-#define DNS_TYPE_MX                             15
-
-//Client
-
-struct header_flags { //大小端字节序
-	uint8_t rcode:4;
-	uint8_t z:3;
-	uint8_t ra:1;
-
-	uint8_t rd:1;
-	uint8_t tc:1;
-	uint8_t aa:1;
-	uint8_t opcode:4;
-	uint8_t qr:1;
-};
-
-struct header {
-	uint16_t id;
-	struct header_flags *flags;
-	uint16_t queries;
-	uint16_t answers;
-	uint16_t auth_rr;
-	uint16_t add_rr;
-};
-
-struct query {
-	unsigned char *name;
-	uint16_t type;
-	uint16_t class;
-};
-
-struct record {
-	unsigned char *name;
-	uint16_t type;
-	uint16_t class;
-	uint32_t ttl;
-	uint16_t len;
-	unsigned char *data;
-};
+#include "dns.h"
 
 //DNS Local Server的socket
 int server_socket;
@@ -62,16 +10,19 @@ unsigned char buf[512];
 struct timeval start, end;
 
 //逆转换域名
-unsigned char *get_data_name(unsigned char *data) {
+unsigned char *get_data_name(unsigned char *data)
+{
 	unsigned char *name = malloc(64);
-	memcpy(name, data, strlen((const char *) data) + 1);
+	memcpy(name, data, strlen((const char *)data) + 1);
 
 	//3www5baidu3com0 -> www.baidu.com
 	int i = 0;
-	for (; i < strlen((const char *) name); i++) {
+	for (; i < strlen((const char *)name); i++)
+	{
 		int num = name[i];
 		int j;
-		for (j = 0; j < num; j++) {
+		for (j = 0; j < num; j++)
+		{
 			name[i] = name[i + 1];
 			i++;
 		}
@@ -82,15 +33,18 @@ unsigned char *get_data_name(unsigned char *data) {
 }
 
 //读取域名  3www5baidu3com0
-unsigned char *get_name(int *loc, unsigned char *reader) {
+unsigned char *get_name(int *loc, unsigned char *reader)
+{
 	unsigned char *name = malloc(64);
 	int num = 0;
 
 	*loc = 0;
 
-	while (*reader != 0) {
+	while (*reader != 0)
+	{
 		name[num++] = *reader;
 		reader++;
+		(*loc)++;
 	}
 	name[num] = '\0';
 	(*loc)++;
@@ -98,7 +52,8 @@ unsigned char *get_name(int *loc, unsigned char *reader) {
 	return get_data_name(name);
 }
 
-char *ptr(char *ip) {
+char *ptr(char *ip)
+{
 	char *suffix = "in-addr.arpa";
 
 	char *result = malloc(64);
@@ -110,12 +65,14 @@ char *ptr(char *ip) {
 
 	char *token = strtok(string, ".");
 	int i;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 4; i++)
+	{
 		memcpy(temp[3 - i], token, strlen(token));
 		strcat(temp[3 - i], ".");
 		token = strtok(NULL, ".");
 	}
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 4; i++)
+	{
 		strcat(result, temp[i]);
 	}
 	strcat(result, suffix);
@@ -124,18 +81,22 @@ char *ptr(char *ip) {
 }
 
 //转换域名
-void transform(unsigned char *query_name, unsigned char *hostname) {
+void transform(unsigned char *query_name, unsigned char *hostname)
+{
 	int loc = 0;
 	char host[64] = {0};
-	memcpy(host, hostname, strlen((const char *) hostname));
+	memcpy(host, hostname, strlen((const char *)hostname));
 	strcat(host, ".");
 
 	int i;
-	for (i = 0; i < strlen(host); i++) {
-		if (host[i] == '.') {
-			*query_name++ = (unsigned char) (i - loc);
-			for (; loc < i; loc++) {
-				*query_name++ = (unsigned char) host[loc];
+	for (i = 0; i < strlen(host); i++)
+	{
+		if (host[i] == '.')
+		{
+			*query_name++ = (unsigned char)(i - loc);
+			for (; loc < i; loc++)
+			{
+				*query_name++ = (unsigned char)host[loc];
 			}
 			loc++;
 		}
@@ -143,18 +104,19 @@ void transform(unsigned char *query_name, unsigned char *hostname) {
 	*query_name = 0;
 }
 
-size_t make_rr(size_t loc, unsigned char *buf, struct record *pRecord) {
+size_t make_rr(size_t loc, unsigned char *buf, RR *pRecord)
+{
 	unsigned char *name = pRecord->name;
-	uint16_t type = pRecord->type;
-	uint16_t class = pRecord->class;
-	uint32_t ttl = pRecord->ttl;
-	uint16_t len = pRecord->len;
-	unsigned char *data = pRecord->data;
+	unsigned short type = pRecord->type;
+	unsigned short class = pRecord->_class;
+	unsigned int ttl = pRecord->ttl;
+	unsigned short len = pRecord->data_len;
+	unsigned char *data = pRecord->rdata;
 
 	//Query Name
 	unsigned char *query_name = &buf[loc];
 	transform(query_name, name);
-	loc += strlen((const char *) query_name) + 1;
+	loc += strlen((const char *)query_name) + 1;
 
 	//Type
 	type = htons(type);
@@ -177,133 +139,151 @@ size_t make_rr(size_t loc, unsigned char *buf, struct record *pRecord) {
 	loc += sizeof(len);
 
 	//Data
-	memcpy(&buf[loc], data, pRecord->len);
-	loc += pRecord->len;
+	memcpy(&buf[loc], data, pRecord->data_len);
+	loc += pRecord->data_len;
 
 	return loc;
 }
 
 //Header
-struct header *make_header(uint16_t id, uint8_t qr, uint8_t rd, uint8_t rcode, uint16_t queries, uint16_t answers, uint16_t auth_rr, uint16_t add_rr) {
-	struct header *header = malloc(sizeof(struct header));
+Header *make_header(unsigned short id, uint8_t qr, uint8_t rd, uint8_t rcode, unsigned short queries, unsigned short answers, unsigned short auth_rr, unsigned short add_rr)
+{
+	Header *header = malloc(sizeof(Header));
 
 	if (id > 0)
 		header->id = id;
 	else
-		header->id = (uint16_t) clock(); //clock()的作用是获得时间，在这里的作用只是用作随机数
+		header->id = (unsigned short)clock(); //clock()的作用是获得时间，在这里的作用只是用作随机数
 
-	header->flags = malloc(sizeof(struct header_flags));
-	header->flags->qr = qr;
-	header->flags->opcode = 0;
-	header->flags->aa = 0;
-	header->flags->tc = 0;
-	header->flags->rd = rd; //0迭代 1递归
-	header->flags->ra = 1;
-	header->flags->z = 0;
-	header->flags->rcode = rcode;
+	header->tag = (unsigned short)0x0080;
+	// header->flags = malloc(sizeof(struct header_flags));
+	// header->flags->qr = qr;
+	// header->flags->opcode = 0;
+	// header->flags->aa = 0;
+	// header->flags->tc = 0;
+	// header->flags->rd = rd; //0迭代 1递归
+	// header->flags->ra = 1;
+	// header->flags->z = 0;
+	// header->flags->rcode = rcode;
 
-	header->queries = queries;
-	header->answers = answers;
-	header->auth_rr = auth_rr;
-	header->add_rr = add_rr;
+	header->queryNum = queries;
+	header->answerNum = answers;
+	header->authorNum = auth_rr;
+	header->addNum = add_rr;
 
 	return header;
 }
 
 //DNS packet
-size_t make_packet(size_t loc, unsigned char *buf, struct header *header, struct query **queries, struct record **answers, struct record **auths, struct record **adds) {
+size_t make_packet(size_t loc, unsigned char *buf, Header *header, Query q1, RR **answers, RR **auths, RR **adds)
+{
 	//Transaction ID
-	uint16_t id = htons(header->id);
+	unsigned short id = htons(header->id);
 	memcpy(&buf[loc], &id, sizeof(id));
 	loc += sizeof(id);
 
 	//Flags
-	uint16_t flags;
-	memcpy(&flags, header->flags, sizeof(*(header->flags)));
-	flags = htons(flags);
-	memcpy(&buf[loc], &flags, sizeof(flags));
-	loc += sizeof(flags);
+	unsigned short tag;
+	memcpy(&tag, &(header->tag), sizeof((header->tag)));
+	tag = htons(tag);
+	memcpy(&buf[loc], &tag, sizeof(tag));
+	loc += sizeof(tag);
 
 	//Number of queries in packet
-	uint16_t query_num = htons(header->queries);
+	unsigned short query_num = htons(header->queryNum);
 	memcpy(&buf[loc], &query_num, sizeof(query_num));
 	loc += sizeof(query_num);
 
 	//Number of answers in packet
-	uint16_t answer_num = htons(header->answers);
+	unsigned short answer_num = htons(header->answerNum);
 	memcpy(&buf[loc], &answer_num, sizeof(answer_num));
 	loc += sizeof(answer_num);
 
 	//Number of authoritative records in packet
-	uint16_t auth_rr = htons(header->auth_rr);
+	unsigned short auth_rr = htons(header->authorNum);
 	memcpy(&buf[loc], &auth_rr, sizeof(auth_rr));
 	loc += sizeof(auth_rr);
 
 	//Number of additional records in packet
-	uint16_t add_rr = htons(header->add_rr);
+	unsigned short add_rr = htons(header->addNum);
 	memcpy(&buf[loc], &add_rr, sizeof(add_rr));
 	loc += sizeof(add_rr);
 
 	int i;
-	for (i = 0; i < header->queries; i++) {
-		unsigned char *name = queries[i]->name;
-		uint16_t type = queries[i]->type;
-		uint16_t class = queries[i]->class;
+	unsigned char *name = q1.name;
+	unsigned short type = q1.qtype;
+	unsigned short class = q1.qclass;
 
-		//Query Name
-		unsigned char *query_name = &buf[loc];
-		transform(query_name, name);
-		loc += strlen((const char *) query_name) + 1;
+	//Query Name
+	unsigned char *query_name = &buf[loc];
+	transform(query_name, name);
+	loc += strlen((const char *)query_name) + 1;
 
-		//Query Type
-		type = htons(type);
-		memcpy(&buf[loc], &type, sizeof(type));
-		loc += sizeof(type);
+	//Query Type
+	type = htons(type);
+	memcpy(&buf[loc], &type, sizeof(type));
+	loc += sizeof(type);
 
-		//Query Class
-		class = htons(class);
-		memcpy(&buf[loc], &class, sizeof(class));
-		loc += sizeof(class);
-	}
+	//Query Class
+	class = htons(class);
+	memcpy(&buf[loc], &class, sizeof(class));
+	loc += sizeof(class);
 
-	for (i = 0; i < header->answers; i++)
+	for (i = 0; i < header->answerNum; i++)
 		loc = make_rr(loc, buf, answers[i]);
 
-	for (i = 0; i < header->auth_rr; i++)
+	for (i = 0; i < header->authorNum; i++)
 		loc = make_rr(loc, buf, auths[i]);
 
-	for (i = 0; i < header->add_rr; i++)
+	for (i = 0; i < header->addNum; i++)
 		loc = make_rr(loc, buf, adds[i]);
 
 	return loc;
 }
 
 //得到类型名称
-char *get_type_name(uint16_t type) {
-	switch (type) {
-		case DNS_TYPE_A:
-			return "A";
-		case DNS_TYPE_NS:
-			return "NS";
-		case DNS_TYPE_CNAME:
-			return "CNAME";
-		case DNS_TYPE_PTR:
-			return "PTR";
-		case DNS_TYPE_MX:
-			return "MX";
-		default:
-			return "Unknown";
+char *get_type_name(unsigned short type)
+{
+	switch (type)
+	{
+	case DNS_TYPE_A:
+		return "A";
+	case DNS_TYPE_NS:
+		return "NS";
+	case DNS_TYPE_CNAME:
+		return "CNAME";
+	case DNS_TYPE_PTR:
+		return "PTR";
+	case DNS_TYPE_MX:
+		return "MX";
+	default:
+		return "Unknown";
 	}
+}
+RR *read_query(size_t *loc, unsigned char *reader)
+{
+	*loc = 0;
+	int temp_loc = 0;
+	Query q2;
+	Query *pQuery = &q2;
+	//Query Name
+	strcpy(pQuery->name, get_name(&temp_loc, reader));
+	reader += temp_loc;
+	*loc += temp_loc;
+	reader += 4;
+	*loc += 4;
 }
 
 //Resource Record
-struct record *read_rr(size_t *loc, unsigned char *reader) {
+RR *read_rr(size_t *loc, unsigned char *reader)
+{
 	*loc = 0;
 	int temp_loc = 0;
-	struct record *pRecord = malloc(sizeof(struct record));
+	RR rr1;
+	RR *pRecord = &rr1;
 
 	//Record Name
-	pRecord->name = get_name(&temp_loc, reader);
+	strcpy(pRecord->name, get_name(&temp_loc, reader));
 	reader += temp_loc;
 	*loc += temp_loc;
 	printf("Name: <%s> ", pRecord->name);
@@ -311,63 +291,72 @@ struct record *read_rr(size_t *loc, unsigned char *reader) {
 	//Record Type
 	memcpy(&pRecord->type, reader, sizeof(pRecord->type));
 	pRecord->type = ntohs(pRecord->type);
-	reader += sizeof(pRecord->type);
-	*loc += sizeof(pRecord->type);
-	printf("Type: <%s> ", get_type_name(pRecord->type));
+	reader += 2;
+	*loc += 2;
+	printf("Type: <%s> \n", get_type_name(pRecord->type));
 
 	//Record Class
-	memcpy(&pRecord->class, reader, sizeof(pRecord->class));
-	pRecord->class = ntohs(pRecord->class);
-	reader += sizeof(pRecord->class);
-	*loc += sizeof(pRecord->class);
+	memcpy(&pRecord->_class, reader, sizeof(pRecord->_class));
+	pRecord->_class = ntohs(pRecord->_class);
+	reader += 2;
+	*loc += sizeof(pRecord->_class);
 
 	//Record TTL
-	memcpy(&pRecord->ttl, reader, sizeof(pRecord->ttl));
+	memcpy(&pRecord->ttl, reader, 4);
 	pRecord->ttl = ntohl(pRecord->ttl);
 	reader += sizeof(pRecord->ttl);
 	*loc += sizeof(pRecord->ttl);
-	printf("Time to live: <%u> ", pRecord->ttl);
+	printf("Time to live: <%d> ", pRecord->ttl);
 
 	//Record Length
-	memcpy(&pRecord->len, reader, sizeof(pRecord->len));
-	pRecord->len = ntohs(pRecord->len);
-	reader += sizeof(pRecord->len);
-	*loc += sizeof(pRecord->len);
+	memcpy(&pRecord->data_len, reader, sizeof(pRecord->data_len));
+	pRecord->data_len = ntohs(pRecord->data_len);
+	reader += sizeof(pRecord->data_len);
+	*loc += sizeof(pRecord->data_len);
 
 	//Record Data
-	unsigned char *_data = malloc(pRecord->len);
-	bzero(_data, pRecord->len);
-	memcpy(_data, reader, pRecord->len);
-	pRecord->data = _data;
-
-	if (pRecord->type == DNS_TYPE_A) {
+	unsigned char *_data = malloc(pRecord->data_len);
+	bzero(_data, pRecord->data_len);
+	memcpy(_data, reader, pRecord->data_len);
+	strcpy(pRecord->rdata, _data);
+	if (pRecord->type == DNS_TYPE_A)
+	{
 		struct sockaddr_in t;
-		memcpy(&t.sin_addr, pRecord->data, sizeof(struct in_addr));
+		memcpy(&t.sin_addr, pRecord->rdata, sizeof(struct in_addr));
 		printf("Address: <%s> ", inet_ntoa(t.sin_addr));
-	} else if (pRecord->type == DNS_TYPE_NS) {
+	}
+	else if (pRecord->type == DNS_TYPE_NS)
+	{
 		printf("Name Server: <%s> ", get_name(&temp_loc, reader));
-	} else if (pRecord->type == DNS_TYPE_CNAME) {
+	}
+	else if (pRecord->type == DNS_TYPE_CNAME)
+	{
 		printf("CNAME: <%s> ", get_name(&temp_loc, reader));
-	} else if (pRecord->type == DNS_TYPE_PTR) {
+	}
+	else if (pRecord->type == DNS_TYPE_PTR)
+	{
 		printf("Domain Name: <%s> ", get_name(&temp_loc, reader));
-	} else if (pRecord->type == DNS_TYPE_MX) {
-		uint16_t preference;
-		memcpy(&preference, pRecord->data, sizeof(preference));
+	}
+	else if (pRecord->type == DNS_TYPE_MX)
+	{
+		unsigned short preference;
+		memcpy(&preference, pRecord->rdata, sizeof(preference));
 		reader += sizeof(preference);
 		printf("Preference: <%hu> Mail Exchange: <%s> ", ntohs(preference), get_name(&temp_loc, reader));
 		reader -= sizeof(preference);
 	}
 	printf("\n");
-	reader += pRecord->len;
-	*loc += pRecord->len;
+	reader += pRecord->data_len;
+	*loc += pRecord->data_len;
 
 	return pRecord;
 }
 
 //Header
-struct header *read_header(size_t *loc, unsigned char *reader) {
+Header *read_header(size_t *loc, unsigned char *reader)
+{
 	*loc = 0;
-	struct header *header = malloc(sizeof(struct header));
+	Header *header = malloc(sizeof(Header));
 
 	//Transaction ID
 	memcpy(&header->id, reader, sizeof(header->id));
@@ -376,62 +365,70 @@ struct header *read_header(size_t *loc, unsigned char *reader) {
 	*loc += sizeof(header->id);
 
 	//Flags
-	uint16_t flags;
-	memcpy(&flags, reader, sizeof(flags));
-	flags = ntohs(flags);
-	header->flags = malloc(sizeof(*(header->flags)));
-	memcpy(header->flags, &flags, sizeof(*(header->flags)));
-	reader += sizeof(*(header->flags));
-	*loc += sizeof(*(header->flags));
-	printf("Flags: <0x%04x> ", flags);
+	unsigned short tag;
+	memcpy(&tag, reader, sizeof(tag));
+	tag = ntohs(tag);
+	unsigned short *tag_ptr = &tag;
+	Flag flags;
+	Flag *flag_ptr;
+	flag_ptr = &flags;
+	*flag_ptr = *(Flag *)tag_ptr;
+
+	//header->tag = malloc(sizeof((header->tag)));
+	memcpy(&(header->tag), &tag, sizeof((tag)));
+	reader += sizeof((header->tag));
+	*loc += sizeof((header->tag));
+	//printf("tag: <0x%04x> ", tag);
 
 	//Queries
-	memcpy(&header->queries, reader, sizeof(header->queries));
-	header->queries = ntohs(header->queries);
-	reader += sizeof(header->queries);
-	*loc += sizeof(header->queries);
+	memcpy(&header->queryNum, reader, sizeof(header->queryNum));
+	header->queryNum = ntohs(header->queryNum);
+	reader += sizeof(header->queryNum);
+	*loc += sizeof(header->queryNum);
 
 	//Answers
-	memcpy(&header->answers, reader, sizeof(header->answers));
-	header->answers = ntohs(header->answers);
-	reader += sizeof(header->answers);
-	*loc += sizeof(header->answers);
+	memcpy(&header->answerNum, reader, sizeof(header->answerNum));
+	header->answerNum = ntohs(header->answerNum);
+	reader += sizeof(header->answerNum);
+	*loc += sizeof(header->answerNum);
 
 	//Authoritative
-	memcpy(&header->auth_rr, reader, sizeof(header->auth_rr));
-	header->auth_rr = ntohs(header->auth_rr);
-	reader += sizeof(header->auth_rr);
-	*loc += sizeof(header->auth_rr);
+	memcpy(&header->authorNum, reader, sizeof(header->authorNum));
+	header->authorNum = ntohs(header->authorNum);
+	reader += sizeof(header->authorNum);
+	*loc += sizeof(header->authorNum);
 
 	//Additional
-	memcpy(&header->add_rr, reader, sizeof(header->add_rr));
-	header->add_rr = ntohs(header->add_rr);
-	reader += sizeof(header->add_rr);
-	*loc += sizeof(header->add_rr);
+	memcpy(&header->addNum, reader, sizeof(header->addNum));
+	header->addNum = ntohs(header->addNum);
+	reader += sizeof(header->addNum);
+	*loc += sizeof(header->addNum);
 
-	if (header->flags->qr == 1) {
-		if (header->flags->aa)
+	if (flags.qr == 1)
+	{
+		if (flags.aa)
 			printf("Authoritative response. ");
 		else
 			printf("Non-authoritative response. ");
 	}
 
-	if (header->flags->rd == 1)
+	if (flags.rd == 1)
 		printf("Recursive query. ");
 	else
 		printf("Iterative query. ");
 
-	if (header->flags->qr == 1) {
-		if (header->flags->ra)
+	if (flags.qr == 1)
+	{
+		if (flags.ra)
 			printf("Server can do recursive queries. ");
 		else
 			printf("Server cannot do recursive queries. ");
 
-		if (header->flags->rcode == 0)
+		if (flags.rcode == 0)
 			printf("No error. ");
-		else if (header->flags->rcode == 2)
+		else if (flags.rcode == 2)
 			printf("Server failure. ");
-		else if (header->flags->rcode == 3)
+		else if (flags.rcode == 3)
 			printf("No such name. ");
 	}
 
@@ -441,10 +438,11 @@ struct header *read_header(size_t *loc, unsigned char *reader) {
 }
 
 //Response
-void resolve_tcp_response_packet() {
-	uint16_t length = 0;
+void resolve_tcp_response_packet()
+{
+	unsigned short length = 0;
 
-	recv(server_socket, &length, sizeof(uint16_t), 0);
+	recv(server_socket, &length, sizeof(unsigned short), 0);
 	length = ntohs(length);
 	bzero(buf, length);
 	recv(server_socket, buf, length, 0);
@@ -456,38 +454,44 @@ void resolve_tcp_response_packet() {
 	unsigned char *reader = buf;
 
 	//Header
-	struct header *header = read_header(&loc, reader);
+	Header *header = read_header(&loc, reader);
 	reader += loc;
 
 	//Queries
-			int i;
-	for (i = 0; i < header->queries; i++) {
-		read_rr(&loc, reader);
+	int i;
+	for (i = 0; i < header->queryNum; i++)
+	{
+		read_query(&loc, reader);
 		reader += loc;
 	}
 
 	//Answers
-	for (i = 0; i < header->answers; i++) {
+	for (i = 0; i < header->answerNum; i++)
+	{
 		read_rr(&loc, reader);
 		reader += loc;
 	}
 
 	//Authoritative
-	for (i = 0; i < header->auth_rr; i++) {
+	for (i = 0; i < header->authorNum; i++)
+	{
 		read_rr(&loc, reader);
 		reader += loc;
 	}
 
 	//Additional
-	for (i = 0; i < header->add_rr; i++) {
+	for (i = 0; i < header->addNum; i++)
+	{
 		read_rr(&loc, reader);
 		reader += loc;
 	}
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 	//创建socket
-	if ((server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+	if ((server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+	{
 		printf("socket() failed.\n");
 		exit(1);
 	}
@@ -499,59 +503,58 @@ int main(int argc, char **argv) {
 	server_add.sin_port = htons(53);
 	server_add.sin_addr.s_addr = inet_addr("127.0.0.2");
 
-	connect(server_socket, (struct sockaddr *) &server_add, sizeof(server_add));
+	connect(server_socket, (struct sockaddr *)&server_add, sizeof(server_add));
 
 	//表明递归或迭代
 	int rd = 0;
 	int query_num = 1;
 	bzero(buf, 512);
 
-	size_t loc = sizeof(uint16_t);
+	size_t loc = sizeof(unsigned short);
 
-	struct header *header = make_header(0, 0, rd, 0, query_num, 0, 0, 0);
-
-	struct query **queries = malloc(sizeof(struct query) * query_num);
-
-	char type[64] = {0};
-	char name[64] = {0};
+	Header *header = make_header(0, 0, rd, 0, query_num, 0, 0, 0);
+	Query q1;
 	int i;
-	for (i = 0; i < query_num; i++) {
-		start:
-		printf("Type: ");
+	while (1)
+	{
+		char type[64];
+		char name[64];
+		printf("Please choose the query Type: \n");
+		printf("  1. A \n  2. MX \n  3. CNAME \n");
+		printf("Please input the number of your choice: ");
 		scanf("%s", type);
-		printf("Domain name: ");
-		scanf("%s", name);
-		queries[i] = malloc(sizeof(struct query));
-		if (!strcmp(type, "A")) {
-			queries[i]->name = (unsigned char *) name;
-			queries[i]->type = 1;
-		} else if (!strcmp(type, "CNAME")) {
-			queries[i]->name = (unsigned char *) name;
-			queries[i]->type = 5;
-		} else if (!strcmp(type, "PTR")) {
-			queries[i]->name = (unsigned char *) ptr(name);
-			queries[i]->type = 12;
-		} else if (!strcmp(type, "MX")) {
-			queries[i]->name = (unsigned char *) name;
-			queries[i]->type = 15;
-		} else {
-			printf("Wrong type!\n");
-			goto start;
+		//safe_flush(stdin);
+		if (strcmp(type, "1") == 0)
+		{
+			q1.qtype = 1;
 		}
-		queries[i]->class = 1;
+		else if (strcmp(type, "2") == 0)
+		{
+			q1.qtype = 15;
+		}
+		else if (strcmp(type, "3") == 0)
+		{
+			q1.qtype = 5;
+		}
+		else
+		{
+			printf("Invalid input format, please try again. \n\n");
+			continue;
+		}
+		printf("Please input the domain name: \n");
+		scanf("%s", name);
+		//safe_flush(stdin);
+		strcpy(q1.name, name);
+		q1.qclass = 1;
+		break;
 	}
 
-	struct record **answers = NULL, **auths = NULL, **adds = NULL;
-
-	loc = make_packet(loc, buf, header, queries, answers, auths, adds);
-
-	uint16_t dns_packet_size = htons((uint16_t) (loc - 2));
-
+	RR **answers = NULL, **auths = NULL, **adds = NULL;
+	loc = make_packet(loc, buf, header, q1, answers, auths, adds);
+	unsigned short dns_packet_size = htons((unsigned short)(loc - 2));
 	//前两个字节表示packet的长度
-	memcpy(buf, &dns_packet_size, sizeof(uint16_t));
-
+	memcpy(buf, &dns_packet_size, sizeof(unsigned short));
 	send(server_socket, buf, loc, 0);
-
 	//记录时间
 	gettimeofday(&start, NULL);
 

@@ -1,4 +1,4 @@
-#include "DNS1.h"
+#include "dns.h"
 
 //DNS服务器ip
 unsigned char ip[64];
