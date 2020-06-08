@@ -56,6 +56,7 @@ typedef struct DNS_RR
     unsigned char rdata[128];
 } RR;
 
+<<<<<<< Updated upstream
 typedef struct header_flags { //大小端字节序
 	uint8_t qr:1;
     uint8_t opcode:4;
@@ -74,6 +75,19 @@ typedef struct header_flags { //大小端字节序
 	
 	
 	
+=======
+typedef struct header_flags
+{ //大小端字节序
+    uint8_t rcode : 4;
+    uint8_t z : 3;
+    uint8_t ra : 1;
+
+    uint8_t rd : 1;
+    uint8_t tc : 1;
+    uint8_t aa : 1;
+    uint8_t opcode : 4;
+    uint8_t qr : 1;
+>>>>>>> Stashed changes
 } Flag;
 
 int WSAGetLastError()

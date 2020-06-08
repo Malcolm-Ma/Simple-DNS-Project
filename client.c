@@ -1,4 +1,5 @@
 #include "dns.h"
+#include "tools.h"
 
 //DNS Local Server的socket
 int server_socket;
@@ -241,25 +242,6 @@ size_t make_packet(size_t loc, unsigned char *buf, Header *header, Query q1, RR 
 	return loc;
 }
 
-//得到类型名称
-char *get_type_name(unsigned short type)
-{
-	switch (type)
-	{
-	case DNS_TYPE_A:
-		return "A";
-	case DNS_TYPE_NS:
-		return "NS";
-	case DNS_TYPE_CNAME:
-		return "CNAME";
-	case DNS_TYPE_PTR:
-		return "PTR";
-	case DNS_TYPE_MX:
-		return "MX";
-	default:
-		return "Unknown";
-	}
-}
 RR *read_query(size_t *loc, unsigned char *reader)
 {
 	*loc = 0;
