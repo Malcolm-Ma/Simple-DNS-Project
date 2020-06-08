@@ -92,6 +92,7 @@ unsigned char *get_name(int *loc, unsigned char *reader) {
 	while (*reader != 0) {
 		name[num++] = *reader;
 		reader++;
+		(*loc)++;
 	}
 	name[num] = '\0';
 	(*loc)++;
@@ -295,12 +296,25 @@ char *get_type_name(uint16_t type) {
 			return "Unknown";
 	}
 }
+struct record *read_query(size_t *loc, unsigned char *reader) {
+	*loc = 0;
+	int temp_loc = 0;
+	struct query q2;
+	struct query *pQuery = &q2;
+	//Query Name
+    strcpy(pQuery->name, get_name(&temp_loc, reader));
+	reader += temp_loc;
+	*loc += temp_loc;
+	reader += 4;
+	*loc += 4;
+}
 
 //Resource Record
 struct record *read_rr(size_t *loc, unsigned char *reader) {
 	*loc = 0;
 	int temp_loc = 0;
-	struct record *pRecord = malloc(sizeof(struct record));
+	struct record rr1;
+	struct record *pRecord = &rr1;
 
 	//Record Name
     strcpy(pRecord->name, get_name(&temp_loc, reader));
@@ -311,22 +325,22 @@ struct record *read_rr(size_t *loc, unsigned char *reader) {
 	//Record Type
 	memcpy(&pRecord->type, reader, sizeof(pRecord->type));
 	pRecord->type = ntohs(pRecord->type);
-	reader += sizeof(pRecord->type);
-	*loc += sizeof(pRecord->type);
-	printf("Type: <%s> ", get_type_name(pRecord->type));
+	reader += 2;
+	*loc += 2;
+	printf("Type: <%s> \n", get_type_name(pRecord->type));
 
 	//Record Class
 	memcpy(&pRecord->class, reader, sizeof(pRecord->class));
 	pRecord->class = ntohs(pRecord->class);
-	reader += sizeof(pRecord->class);
+	reader += 2;
 	*loc += sizeof(pRecord->class);
 
 	//Record TTL
-	memcpy(&pRecord->ttl, reader, sizeof(pRecord->ttl));
+	memcpy(&pRecord->ttl, reader, 4);
 	pRecord->ttl = ntohl(pRecord->ttl);
 	reader += sizeof(pRecord->ttl);
 	*loc += sizeof(pRecord->ttl);
-	printf("Time to live: <%u> ", pRecord->ttl);
+	printf("Time to live: <%d> ", pRecord->ttl);
 
 	//Record Length
 	memcpy(&pRecord->len, reader, sizeof(pRecord->len));
@@ -469,7 +483,7 @@ void resolve_tcp_response_packet() {
 	//Queries
 			int i;
 	for (i = 0; i < header->queries; i++) {
-		read_rr(&loc, reader);
+		read_query(&loc, reader);
 		reader += loc;
 	}
 
