@@ -227,7 +227,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     *((unsigned short *)rr_ptr) = htons(1);
     rr1._class = 1;
     rr_ptr += 2;
-    //
+    
     *((unsigned short *)rr_ptr) = htonl(0);
     rr1.ttl = 0;
     rr_ptr += 4;
