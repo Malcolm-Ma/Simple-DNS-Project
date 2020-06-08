@@ -142,7 +142,7 @@ int main()
 
             switch (head.tag)
             {
-            case (unsigned short)0x8000: //回答是结果
+            case (unsigned short)0x8020: //回答是结果
                 for (i = 2; i < sizeof(udprecvpacket); ++i)
                 {
                     //生成给client的报文，空2个字节
