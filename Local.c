@@ -198,7 +198,6 @@ int main()
                             gethead(udprecvpacket, &udprecvpos, &h2);
                             getquery(udprecvpacket,&udprecvpos, &q2);
                             getrr(udprecvpacket, &udprecvpos, &r2);
-
                             if (r2.type == 2)
                             {
                                 //更新ip地址，若为NS类型，则继续向下一服务器进行请求
@@ -291,14 +290,15 @@ int main()
         tcpsendpos = 2;
         gethead(tcpsendpacket, &tcpsendpos, &head);
         getquery(tcpsendpacket, &tcpsendpos, &query);
-        getrr(tcpsendpacket, &tcpsendpos, &rrdb[rrnum]);
+        getAddrr(tcpsendpacket, &tcpsendpos, &rrdb[rrnum]);
         if (rrdb[rrnum].type != 15)
         {
             strcpy(dbptr, rrdb[rrnum].name);
-            memcpy(rrdb[rrnum].name, dbptr, sizeof(dbptr));
+         //   memcpy(rrdb[rrnum].name, dbptr, sizeof(dbptr));
             dbptr += strlen(dbptr) + 1;
             strcpy(dbptr, rrdb[rrnum].rdata);
-            memcpy(rrdb[rrnum].rdata, dbptr, sizeof(dbptr));
+            printf("rrdb.rdata:%s\n", rrdb[rrnum].rdata);
+           // memcpy(rrdb[rrnum].rdata, dbptr, sizeof(dbptr));
             dbptr += strlen(dbptr) + 1;
             rrnum++;
         }
@@ -491,7 +491,6 @@ void setaquery(unsigned char *packet, int *packetlen, unsigned char *domain)
     Query query1;
     
     strcpy(query1.name, domain);
-    printf("%s\n", domain);
     query1.qtype = htons(1); //A
     query1.qclass = htons(1);
 
@@ -534,7 +533,6 @@ void setrr(unsigned char *packet, int *packetlen, RR rr)
     *(unsigned short *)packet = htons(rr.data_len + 1);
     packet += 2;
     ptr = rr.rdata;
-    printf("rr.rdata:%s\n",rr.rdata);
     for (i = 0; i < (rr.data_len+1); ++i)
     {
         *packet++ = *ptr++;
