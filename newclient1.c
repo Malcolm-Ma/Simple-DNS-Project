@@ -551,6 +551,12 @@ void resolve_tcp_response_packet()
 	}
 }
 
+void safe_flush(FILE *fp)
+{
+	int ch;
+	while ((ch = fgetc(fp)) != EOF && ch != '\n');
+}
+
 int main(int argc, char **argv)
 {
 	//创建socket
@@ -577,47 +583,44 @@ int main(int argc, char **argv)
 	size_t loc = sizeof(uint16_t);
 
 	struct header *header = make_header(0, 0, rd, 0, query_num, 0, 0, 0);
-
 	struct query *query;
-	char type[64] = {0};
-	char name[64] = {0};
 
 	while (1)
 	{
+		char type[64];
+		char name[64];
 		printf("Please choose the query Type: \n");
 		printf("  1. A \n  2. MX \n  3. CNAME \n");
-		scanf("Please input the number of your choice: %s", type);
-		if (type[1] != '0')
-		{
-			printf("Invalid input format, please try again. \n");
-			continue;
-		}
-		else if (type[0] != '1')
+		printf("Please input the number of your choice: ");
+		scanf("%s", type);
+		safe_flush(stdin);
+		if (strcmp(type, "1") == 0)
 		{
 			query->type = 1;
 		}
-		else if (type[0] != '2')
+		else if (strcmp(type, "2") == 0)
 		{
 			query->type = 15;
 		}
-		else if (type[0] != '3')
+		else if (strcmp(type, "3") == 0)
 		{
 			query->type = 5;
 		}
 		else
 		{
-			printf("Invalid input format, please try again. \n");
+			printf("Invalid input format, please try again. \n\n");
 			continue;
 		}
 
 		printf("Please input the domain name: \n");
 		scanf("%s", name);
+		safe_flush(stdin);
 		strcpy(query->name, name);
 		query->class = 1;
 		break;
 	}
 
-	// int i;
+	int i;
 	// for (i = 0; i < query_num; i++)
 	// {
 	// start:
