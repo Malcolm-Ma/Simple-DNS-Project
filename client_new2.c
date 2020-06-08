@@ -528,6 +528,7 @@ void resolve_tcp_response_packet()
 
 int main(int argc, char **argv)
 {
+	printf("Welcome to Simple DNS System\n\n");
 	//创建socket
 	if ((server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
 	{
@@ -557,6 +558,34 @@ int main(int argc, char **argv)
 
 	char type[64] = {0};
 	char name[64] = {0};
+
+	while (1)
+	{
+		printf("Please choose the query Type: \n");
+		printf("  1. A \n  2. MX \n  3. CNAME \n");
+		scanf("Please input the number of your choice: %s", type);
+		if (type[1] != '0' || (type[0] == '1' || type[0] == '2' || type[0] == '3'))
+		{
+			printf("Invalid input format, please try again. \n");
+			continue;
+		}
+		printf("Please input the domain name: \n");
+		scanf("%s", name);
+		if (type[1] != '0')
+		{
+			/* code */
+		}
+		else if (type[1] != '1')
+		{
+		}
+		else if (type[1] != '2')
+		{
+		}
+		else if (type[1] != '3')
+		{
+		}
+	}
+
 	int i;
 	for (i = 0; i < query_num; i++)
 	{
