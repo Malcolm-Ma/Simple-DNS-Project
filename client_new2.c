@@ -564,26 +564,32 @@ int main(int argc, char **argv)
 		printf("Please choose the query Type: \n");
 		printf("  1. A \n  2. MX \n  3. CNAME \n");
 		scanf("Please input the number of your choice: %s", type);
-		if (type[1] != '0' || (type[0] == '1' || type[0] == '2' || type[0] == '3'))
+		if (type[1] != '0')
+		{
+			printf("Invalid input format, please try again. \n");
+			continue;
+		} 
+		else if (type[0] != '1')
+		{
+
+		}
+		else if (type[0] != '2')
+		{
+
+		}
+		else if (type[0] != '3')
+		{
+
+		}
+		else
 		{
 			printf("Invalid input format, please try again. \n");
 			continue;
 		}
+		
 		printf("Please input the domain name: \n");
 		scanf("%s", name);
-		if (type[1] != '0')
-		{
-			/* code */
-		}
-		else if (type[1] != '1')
-		{
-		}
-		else if (type[1] != '2')
-		{
-		}
-		else if (type[1] != '3')
-		{
-		}
+		
 	}
 
 	int i;
