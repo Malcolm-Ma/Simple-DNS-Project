@@ -69,7 +69,7 @@ void getMessage() //将字符串形式的报文转换成结构体存储方式
     header.id = ntohs(*((unsigned short *)ptr));
     ptr += 2;
     header.tag = ntohs(*((unsigned short *)ptr));
-    *((unsigned short *)ptr) = htons((unsigned short)0x8000);
+    *((unsigned short *)ptr) = htons((unsigned short)0x8020);
     ptr += 2;
     header.queryNum = ntohs(*((unsigned short *)ptr));
     ptr += 2;
