@@ -1,4 +1,5 @@
 #include "dns.h"
+#include "tools.h"
 
 Header header;
 Query query;
@@ -26,6 +27,7 @@ void init()
         printf("bind failed: %d\n", errno);
         exit(-1);
     }
+    initSucceed("Government Server");
 }
 
 void getRR(unsigned char *ptr) //结构体存储RR
@@ -61,7 +63,7 @@ void getRR(unsigned char *ptr) //结构体存储RR
     rr_ptr = ptr;
 }
 
-void getMessage() //将字符串形式的报文转换成结构体存储方式
+void getMessage(int traceState) //将字符串形式的报文转换成结构体存储方式
 {
     char *ptr = dns_message;
     int i, flag, num = 0; //num记录name的长度
@@ -104,6 +106,14 @@ void getMessage() //将字符串形式的报文转换成结构体存储方式
         rr_ptr = ptr + 2;
         len_header_query += 4;
     }
+
+    if (traceState == 1)
+    {
+        showDNSHeader(&header);
+        showDNSQuery(&query);
+        header.tag = 0x8400;
+    }
+
     get_rr_ptr = rr_ptr;
 }
 
@@ -139,6 +149,8 @@ int containStr(const unsigned char *dname, const unsigned char *rname, const uns
 
 void addRR(const unsigned char *str, const unsigned char *rname)
 {
+    RR rr1;
+    strcpy(rr1.name, rname);
     unsigned char buf[128];
     unsigned char *ptr = dns_message;
     ptr += 6;
@@ -181,6 +193,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     {
     case 'A':
     {
+        rr1.type = 1;
         *((unsigned short *)rr_ptr) = htons(1);
         rr_ptr += 2;
         pos += 2;
@@ -189,6 +202,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     }
     case 'N':
     {
+        rr1.type = 2;
         unsigned char *_ptr = dns_message;
         _ptr += 6;
         *((unsigned short *)_ptr) = htons(htons(*((unsigned short *)_ptr)) - 1);
@@ -201,6 +215,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     }
     case 'C':
     {
+        rr1.type = 5;
         *((unsigned short *)rr_ptr) = htons(5);
         rr_ptr += 2;
         pos += 6;
@@ -208,6 +223,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     }
     case 'M':
     {
+        rr1.type = 15;
         *((unsigned short *)rr_ptr) = htons(15);
         rr_ptr += 2;
         pos += 3;
@@ -216,18 +232,22 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     }
     }
     *((unsigned short *)rr_ptr) = htons(1);
+    rr1._class = 1;
     rr_ptr += 2;
-    *((unsigned short *)rr_ptr) = htonl(0);
+    *((unsigned short *)rr_ptr) = htonl(86400);
+    rr1.ttl = 0;
     rr_ptr += 4;
     len = strlen(pos);
     len = len - 1;
     if (flag == 1)
     {
         *((unsigned short *)rr_ptr) = htons(4);
+        rr1.data_len = 4;
         rr_ptr += 2;
         struct in_addr addr;
         char ip[32];
         memset(ip, 0, sizeof(ip));
+        strcpy(rr1.rdata, pos);
         memcpy(ip, pos, len);
         inet_aton(ip, &addr);
         *((unsigned long *)rr_ptr) = addr.s_addr;
@@ -236,11 +256,13 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     else if (flag == 2)
     {
         *((unsigned short *)rr_ptr) = htons(len);
+        rr1.data_len = len + 4;
         rr_ptr += 2;
         memcpy(rr_ptr, pos - 3, 2);
         rr_ptr += 2;
         *rr_ptr = (unsigned char)len;
         rr_ptr += 1;
+        strcpy(rr1.rdata, pos);
         memcpy(rr_ptr, pos, len);
         rr_ptr += len;
         memset(rr_ptr, 0, 1);
@@ -249,10 +271,16 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     else
     {
         *((unsigned short *)rr_ptr) = htons(len);
+        rr1.data_len = len;
         rr_ptr += 2;
+        strcpy(rr1.rdata, pos);
         memcpy(rr_ptr, pos - 1, len + 1);
         rr_ptr += (len + 1);
     }
+
+    header.queryNum = 0;
+    header.answerNum = 1;
+    showDNSRR(&header, &rr1);
 }
 
 /*查询文件中存储的资源记录,查询到符合要求
@@ -260,7 +288,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
 void setRR()
 {
     unsigned char temp_rr[256];
-    getMessage();
+    getMessage(1);
     memset(rr_ptr, 0, sizeof(dns_message) - len_header_query); //清空报文中的rr部分
     unsigned char *ptr = dns_message;
     ptr += 6;
@@ -326,7 +354,7 @@ void setRR()
 
 void addaddrr()
 {
-    getMessage();
+    getMessage(0);
     getRR(rr_ptr);
     int i, j;
     for (j = 0; j < header.answerNum; j++)
@@ -396,7 +424,7 @@ void recvQuestion() //从上一层服务器(递归解析)或Local服务器(迭�
         printf("UDP socket receive failed: %d\n", errno);
         exit(-1);
     }
-    printf("receive message from %s\n", inet_ntoa(clientAddr.sin_addr));
+    // printf("receive message from %s\n", inet_ntoa(clientAddr.sin_addr));
     dns_message[err] = '\0';
 }
 
@@ -409,7 +437,8 @@ void sendAnswer(const unsigned char *message) //向LocalDNS服务器或上一层
         printf("UDP send failed: %d\n", errno);
         exit(-1);
     }
-    printf("send message to %s\n", inet_ntoa(clientAddr.sin_addr));
+    printf("%s", DIVIDING_LINE_LONG);
+    // printf("send message to %s\n", inet_ntoa(clientAddr.sin_addr));
 }
 
 int main()
