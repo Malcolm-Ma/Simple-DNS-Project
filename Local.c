@@ -297,7 +297,6 @@ int main()
          //   memcpy(rrdb[rrnum].name, dbptr, sizeof(dbptr));
             dbptr += strlen(dbptr) + 1;
             strcpy(dbptr, rrdb[rrnum].rdata);
-            printf("rrdb.rdata:%s\n", rrdb[rrnum].rdata);
            // memcpy(rrdb[rrnum].rdata, dbptr, sizeof(dbptr));
             dbptr += strlen(dbptr) + 1;
             rrnum++;
@@ -306,7 +305,7 @@ int main()
         printf("cache:\n");
         for (i = 0; i < rrnum; ++i)
         {
-            printf("%s %s\n", rrdb[i].name, rrdb[i].rdata);
+            printf("%s\n", rrdb[i].name);
         }
         close(tcpClientSocket);
     }

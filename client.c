@@ -268,7 +268,7 @@ RR *read_rr(size_t *loc, unsigned char *reader)
 	strcpy(pRecord->name, get_name(&temp_loc, reader));
 	reader += temp_loc;
 	*loc += temp_loc;
-	printf("Name: <%s> ", pRecord->name);
+	printf("Name: <%s> \n", pRecord->name);
 
 	//Record Type
 	memcpy(&pRecord->type, reader, sizeof(pRecord->type));
@@ -288,7 +288,7 @@ RR *read_rr(size_t *loc, unsigned char *reader)
 	pRecord->ttl = ntohl(pRecord->ttl);
 	reader += sizeof(pRecord->ttl);
 	*loc += sizeof(pRecord->ttl);
-	printf("Time to live: <%d> ", pRecord->ttl);
+	printf("Time to live: <%d>\n", pRecord->ttl);
 
 	//Record Length
 	memcpy(&pRecord->data_len, reader, sizeof(pRecord->data_len));
@@ -305,26 +305,26 @@ RR *read_rr(size_t *loc, unsigned char *reader)
 	{
 		struct sockaddr_in t;
 		memcpy(&t.sin_addr, pRecord->rdata, sizeof(struct in_addr));
-		printf("Address: <%s> ", inet_ntoa(t.sin_addr));
+		printf("Address: <%s>\n", inet_ntoa(t.sin_addr));
 	}
 	else if (pRecord->type == DNS_TYPE_NS)
 	{
-		printf("Name Server: <%s> ", get_name(&temp_loc, reader));
+		printf("Name Server: <%s>\n", get_name(&temp_loc, reader));
 	}
 	else if (pRecord->type == DNS_TYPE_CNAME)
 	{
-		printf("CNAME: <%s> ", get_name(&temp_loc, reader));
+		printf("CNAME: <%s>\n", get_name(&temp_loc, reader));
 	}
 	else if (pRecord->type == DNS_TYPE_PTR)
 	{
-		printf("Domain Name: <%s> ", get_name(&temp_loc, reader));
+		printf("Domain Name: <%s>\n", get_name(&temp_loc, reader));
 	}
 	else if (pRecord->type == DNS_TYPE_MX)
 	{
 		unsigned short preference;
 		memcpy(&preference, pRecord->rdata, sizeof(preference));
 		reader += sizeof(preference);
-		printf("Preference: <%hu> Mail Exchange: <%s> ", ntohs(preference), get_name(&temp_loc, reader));
+		printf("Preference: <%hu>\nMail Exchange: <%s>\n", ntohs(preference), get_name(&temp_loc, reader));
 		reader -= sizeof(preference);
 	}
 	printf("\n");
@@ -357,7 +357,7 @@ Header *read_header(size_t *loc, unsigned char *reader)
 	memcpy(&(header->tag), &tag, sizeof((tag)));
 	reader += sizeof((header->tag));
 	*loc += sizeof((header->tag));
-	printf("tag: <0x%04x> ", tag);
+	printf("tag: <0x%04x>\n", tag);
 
 
 	//Queries
@@ -385,14 +385,14 @@ Header *read_header(size_t *loc, unsigned char *reader)
 	*loc += sizeof(header->addNum);
 	if(tag == 32800)
 	{
-		printf("Authoritative response. ");
+		printf("Authoritative response. \n");
 	}
 	else{
-		printf("Non-authoritative response. ");
+		printf("Non-authoritative response. \n");
 	}
-	printf("Iterative query. ");
-	printf("Server cannot do recursive queries. ");
-	printf("No error. ");
+	printf("Iterative query. \n");
+	printf("Server cannot do recursive queries. \n");
+	printf("No error. \n");
 	printf("\n");
 
 	return header;
