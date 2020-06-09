@@ -1,3 +1,0 @@
-﻿Other
-www.microsoft.com IN A 60.221.219.168
-www.ietf.org IN A 127.0.0.9
