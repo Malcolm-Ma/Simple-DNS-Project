@@ -250,9 +250,11 @@ void setRR()
     unsigned char temp_rr[256];
     getMessage(1);
     memset(rr_ptr, 0, sizeof(dns_message) - len_header_query);
+
     unsigned char *ptr = dns_message;
     ptr += 6;
     *((unsigned short *)ptr) = 0;
+    
     FILE *fp;
     fp = fopen("nation.txt", "r");
     if (fp == NULL)

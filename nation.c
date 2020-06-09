@@ -305,69 +305,7 @@ void setRR()
         exit(-1);
     }
 }
-
-void addaddrr()
-{
-    getMessage(0);
-    getRR(rr_ptr);
-    int i, j;
-    for (j = 0; j < header.answerNum; j++)
-    {
-        if (rr[i].type == 15) //找到MX对应data对应的IP地址
-        {
-            unsigned char temp_rr[256];
-            unsigned char type; //记录第二个空格后的字符，也就是RR类型的首字母
-            FILE *fp;
-            fp = fopen("nation.txt", "r");
-            if (fp == NULL)
-            {
-                printf("the file cannot be opened");
-                exit(-1);
-            }
-            while (fgets(temp_rr, sizeof(temp_rr), fp) != NULL) //逐行查询
-            {
-                unsigned char rname[128]; //记录一条资源记录中第一个空格前的部分
-                memset(rname, 0, sizeof(rname));
-                int len = strlen(temp_rr);
-                for (i = 0; i < len; i++)
-                {
-                    if (temp_rr[i] == ' ')
-                        break;
-                }
-                memcpy(rname, temp_rr, i);
-                int numofspace = 0;
-                for (i = 0; i < len; i++)
-                {
-                    if (temp_rr[i] == ' ')
-                        numofspace++;
-                    if (temp_rr[i] == ' ' && numofspace == 2)
-                        break;
-                }
-                type = temp_rr[i + 1];
-                if (containStr(rr[j].rdata, rname, type) == 1)
-                {
-                    addRR(temp_rr, rname);
-                    unsigned char *ptr = dns_message;
-                    ptr += 6;
-                    /*因为添加additional rr也是用的添加RR的函数，所以
-                    需要报头的资源记录数减1，然后附加资源记录数加1*/
-                    *((unsigned short *)ptr) = htons(htons(*((unsigned short *)ptr)) - 1);
-                    ptr += 4;
-                    *((unsigned short *)ptr) = htons(htons(*((unsigned short *)ptr)) + 1);
-                }
-                memset(temp_rr, 0, sizeof(temp_rr));
-            }
-            err = fclose(fp);
-            if (err == EOF)
-            {
-                printf("The file close failed");
-                exit(-1);
-            }
-            break;
-        }
-    }
-}
-
+  
 void recvQuestion() //从上一层服务器(递归解析)或Local服务器(迭代解析)接受报文
 {
     memset(dns_message, 0, 1024);
@@ -402,7 +340,6 @@ int main()
     {
         recvQuestion();
         setRR();
-        addaddrr();
         sendAnswer(dns_message);
     }
     closesocket(udp_socket);

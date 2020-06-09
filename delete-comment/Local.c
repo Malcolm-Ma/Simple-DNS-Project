@@ -48,7 +48,7 @@ int main()
     }
 
     tcpServerAddr.sin_family = AF_INET; 
-    tcpServerAddr.sin_port = htons(53); 
+    tcpServerAddr.sin_port = htons(PORT); 
     tcpServerAddr.sin_addr.s_addr = inet_addr(LOCAL_SVR);
 
     udpRemoteAddr.sin_family = AF_INET;
