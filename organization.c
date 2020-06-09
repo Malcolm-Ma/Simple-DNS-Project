@@ -411,40 +411,7 @@ void sendAnswer(const unsigned char *message) //向LocalDNS服务器或上一层
     }
     printf("send message to %s\n", inet_ntoa(clientAddr.sin_addr));
 }
-
-/*向下一层DNS服务器发送查询请求, svr决定目标服务器的地址(递归解析)*/
-void sendQuestion(const char *message, unsigned char *svr)
-{
-    struct sockaddr_in destSvr;
-    memset(&destSvr, 0, sizeof(destSvr));
-    destSvr.sin_family = AF_INET;
-    destSvr.sin_port = htons(PORT);
-    destSvr.sin_addr.s_addr = inet_addr(svr);
-    int len = sizeof(dns_message);
-    err = sendto(udp_socket, message, len, 0, (struct sockaddr *)&destSvr, sizeof(struct sockaddr));
-    if (err <= 0)
-    {
-        printf("send question to next dns failed: %d\n", errno);
-        exit(-1);
-    }
-    printf("send message to %s\n", svr);
-}
-
-void recvAnswer()
-{
-    memset(dns_message, 0, 1024);
-    struct sockaddr_in addr;
-    int len = sizeof(addr);
-    err = recvfrom(udp_socket, dns_message, sizeof(dns_message), 0, (struct sockaddr *)&addr, &len);
-    if (err <= 0) //等于0时表示连接已终止
-    {
-        printf("UDP socket receive failed: %d\n", errno);
-        exit(-1);
-    }
-    printf("receive message from %s\n", inet_ntoa(addr.sin_addr));
-    dns_message[err] = '\0';
-}
-
+  
 int main()
 {
     init();
