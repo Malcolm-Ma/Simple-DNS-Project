@@ -429,7 +429,7 @@ int main(int argc, char **argv)
 	memset(&server_add, 0, sizeof(struct sockaddr_in));
 	server_add.sin_family = AF_INET;
 	server_add.sin_port = htons(53);
-	server_add.sin_addr.s_addr = inet_addr("127.0.0.2");
+	server_add.sin_addr.s_addr = inet_addr(LOCAL_SVR);
 
 	connect(server_socket, (struct sockaddr *)&server_add, sizeof(server_add));
 

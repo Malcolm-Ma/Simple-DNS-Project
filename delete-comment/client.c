@@ -120,7 +120,7 @@ Header *make_header(unsigned short id, uint8_t qr, uint8_t rd, uint8_t rcode, un
 	return header;
 }
 
-size_t make_packet(size_t loc, unsigned char *buf, Header *header, Query q1, RR **answers, RR **auths, RR **adds)
+unsigned long make_packet(unsigned long loc, unsigned char *buf, Header *header, Query q1, RR **answers, RR **auths, RR **adds)
 {
 	unsigned short id = htons(header->id);
 	memcpy(&buf[loc], &id, sizeof(id));
@@ -276,11 +276,6 @@ Header *read_header(size_t *loc, unsigned char *reader)
 	unsigned short tag;
 	memcpy(&tag, reader, sizeof(tag));
 	tag = ntohs(tag);
-	unsigned short *tag_ptr = &tag;
-	Flag flags;
-	Flag *flag_ptr;
-	flag_ptr = &flags;
-
 	memcpy(&(header->tag), &tag, sizeof((tag)));
 	reader += sizeof((header->tag));
 	*loc += sizeof((header->tag));
@@ -336,7 +331,7 @@ void resolve_tcp_response_packet()
 	printf("%s", DIVIDING_LINE_LONG);
 	printf("Local server response in %lf seconds.\n", end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) / 1000000.0);
 
-	size_t loc = 0;
+	unsigned long loc = 0;
 	unsigned char *reader = buf;
 
 	Header *header = read_header(&loc, reader);
@@ -379,8 +374,8 @@ int main(int argc, char **argv)
 	struct sockaddr_in server_add;
 	memset(&server_add, 0, sizeof(struct sockaddr_in));
 	server_add.sin_family = AF_INET;
-	server_add.sin_port = htons(53);
-	server_add.sin_addr.s_addr = inet_addr("127.0.0.2");
+	server_add.sin_port = htons(PORT);
+	server_add.sin_addr.s_addr = inet_addr(LOCAL_SVR);
 
 	connect(server_socket, (struct sockaddr *)&server_add, sizeof(server_add));
 
