@@ -268,14 +268,14 @@ RR *read_rr(size_t *loc, unsigned char *reader)
 	strcpy(pRecord->name, get_name(&temp_loc, reader));
 	reader += temp_loc;
 	*loc += temp_loc;
-	printf("Name: <%s> \n", pRecord->name);
+	printf("Name        :	    %s \n", pRecord->name);
 
 	//Record Type
 	memcpy(&pRecord->type, reader, sizeof(pRecord->type));
 	pRecord->type = ntohs(pRecord->type);
 	reader += 2;
 	*loc += 2;
-	printf("Type: <%s> \n", get_type_name(pRecord->type));
+	printf("Type	    : 		%s \n", get_type_name(pRecord->type));
 
 	//Record Class
 	memcpy(&pRecord->_class, reader, sizeof(pRecord->_class));
@@ -288,7 +288,7 @@ RR *read_rr(size_t *loc, unsigned char *reader)
 	pRecord->ttl = ntohl(pRecord->ttl);
 	reader += sizeof(pRecord->ttl);
 	*loc += sizeof(pRecord->ttl);
-	printf("Time to live: <%d>\n", pRecord->ttl);
+	printf("TTL	    : 		%d\n", pRecord->ttl);
 
 	//Record Length
 	memcpy(&pRecord->data_len, reader, sizeof(pRecord->data_len));
@@ -301,30 +301,31 @@ RR *read_rr(size_t *loc, unsigned char *reader)
 	bzero(_data, pRecord->data_len);
 	memcpy(_data, reader, pRecord->data_len);
 	strcpy(pRecord->rdata, _data);
+	
 	if (pRecord->type == DNS_TYPE_A)
 	{
 		struct sockaddr_in t;
 		memcpy(&t.sin_addr, pRecord->rdata, sizeof(struct in_addr));
-		printf("Address: <%s>\n", inet_ntoa(t.sin_addr));
+		printf("Address	    : 	    %s\n", inet_ntoa(t.sin_addr));
 	}
 	else if (pRecord->type == DNS_TYPE_NS)
 	{
-		printf("Name Server: <%s>\n", get_name(&temp_loc, reader));
+		printf("Name Server		: 		%s\n", get_name(&temp_loc, reader));
 	}
 	else if (pRecord->type == DNS_TYPE_CNAME)
 	{
-		printf("CNAME: <%s>\n", get_name(&temp_loc, reader));
+		printf("CNAME	    :	    %s\n", get_name(&temp_loc, reader));
 	}
 	else if (pRecord->type == DNS_TYPE_PTR)
 	{
-		printf("Domain Name: <%s>\n", get_name(&temp_loc, reader));
+		printf("Domain Name		: 		%s\n", get_name(&temp_loc, reader));
 	}
 	else if (pRecord->type == DNS_TYPE_MX)
 	{
 		unsigned short preference;
 		memcpy(&preference, pRecord->rdata, sizeof(preference));
 		reader += sizeof(preference);
-		printf("Preference: <%hu>\nMail Exchange: <%s>\n", ntohs(preference), get_name(&temp_loc, reader));
+		printf("Preference		: 		%hu\nMail Exchange		: 		%s\n", ntohs(preference), get_name(&temp_loc, reader));
 		reader -= sizeof(preference);
 	}
 	printf("\n");
@@ -357,7 +358,6 @@ Header *read_header(size_t *loc, unsigned char *reader)
 	memcpy(&(header->tag), &tag, sizeof((tag)));
 	reader += sizeof((header->tag));
 	*loc += sizeof((header->tag));
-	printf("tag: <0x%04x>\n", tag);
 
 
 	//Queries
@@ -383,6 +383,7 @@ Header *read_header(size_t *loc, unsigned char *reader)
 	header->addNum = ntohs(header->addNum);
 	reader += sizeof(header->addNum);
 	*loc += sizeof(header->addNum);
+	printf("%s", DIVIDING_LINE_LONG);
 	if(tag == 32800)
 	{
 		printf("Authoritative response. \n");
@@ -393,7 +394,9 @@ Header *read_header(size_t *loc, unsigned char *reader)
 	printf("Iterative query. \n");
 	printf("Server cannot do recursive queries. \n");
 	printf("No error. \n");
-	printf("\n");
+	printf("%s", DIVIDING_LINE_SHORT);
+	printf("[RESULT]\n");
+	printf("tag         : 		0x%04x\n", tag);
 
 	return header;
 }
@@ -409,6 +412,7 @@ void resolve_tcp_response_packet()
 	recv(server_socket, buf, length, 0);
 
 	gettimeofday(&end, NULL);
+	printf("%s", DIVIDING_LINE_LONG);
 	printf("Local server response in %lf seconds.\n", end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) / 1000000.0);
 
 	size_t loc = 0;
