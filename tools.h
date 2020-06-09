@@ -9,21 +9,21 @@
 
 char *get_type_name(unsigned short type)
 {
-	switch (type)
-	{
-	case DNS_TYPE_A:
-		return "A";
-	case DNS_TYPE_NS:
-		return "NS";
-	case DNS_TYPE_CNAME:
-		return "CNAME";
-	case DNS_TYPE_PTR:
-		return "PTR";
-	case DNS_TYPE_MX:
-		return "MX";
-	default:
-		return "Unknown";
-	}
+    switch (type)
+    {
+    case DNS_TYPE_A:
+        return "A";
+    case DNS_TYPE_NS:
+        return "NS";
+    case DNS_TYPE_CNAME:
+        return "CNAME";
+    case DNS_TYPE_PTR:
+        return "PTR";
+    case DNS_TYPE_MX:
+        return "MX";
+    default:
+        return "Unknown";
+    }
 }
 
 int initSucceed(char *serverName)
@@ -70,11 +70,10 @@ int showDNSQuery(Query *query)
     printf("Name         :      %s\n", dname);
     printf("Type         :      %s\n", get_type_name(query->qtype));
     printf("Class        :      IN\n");
-    printf("\n");
     return 0;
 }
 
-int showDNSRR(Header *header, RR  *rr)
+int showDNSRR(Header *header, RR *rr)
 {
     printf("%s", DIVIDING_LINE_SHORT);
     if (rr->type == 2)
@@ -83,13 +82,16 @@ int showDNSRR(Header *header, RR  *rr)
     }
 
     showDNSHeader(header);
-    
+
     printf("[RESOURCE RECORD]\n");
     printf("Name         :      %s\n", rr->name);
     printf("Type         :      %s\n", get_type_name(rr->type));
     printf("Class        :      IN\n");
     printf("TTL          :      %d\n", rr->ttl);
     printf("Data_len     :      %d\n", rr->data_len);
+    // char rdata[64];
+    // memcpy(rdata, rr->rdata, sizeof(rr->rdata));
+    // rdata[sizeof(rr->rdata)] = '\0';
     printf("IP|DOMAIN    :      %s\n", rr->rdata);
     return 0;
 }

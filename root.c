@@ -238,7 +238,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     rr_ptr += 2;
     memcpy(rr_ptr, pos, len);
     rr_ptr += len;
-    memcpy(rr1.rdata, pos + 1, len);
+    strcpy(rr1.rdata, pos + 1);
 
     showDNSRR(&header, &rr1);
 }

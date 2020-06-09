@@ -232,7 +232,7 @@ void addRR(const unsigned char *str, const unsigned char *rname)
     rr_ptr += 2;
     memcpy(rr_ptr, pos, len);
     rr_ptr += len;
-    memcpy(rr1.rdata, pos + 1, len);
+    strcpy(rr1.rdata, pos + 1);
 
     showDNSRR(&header, &rr1);
 }
@@ -378,7 +378,7 @@ void recvQuestion() //从上一层服务器(递归解析)或Local服务器(迭�
         printf("UDP socket receive failed: %d\n", errno);
         exit(-1);
     }
-    printf("receive message from %s\n", inet_ntoa(clientAddr.sin_addr));
+    // printf("receive message from %s\n", inet_ntoa(clientAddr.sin_addr));
     dns_message[err] = '\0';
 }
 
